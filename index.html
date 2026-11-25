@@ -26,7 +26,7 @@ button.pri{background:var(--accent);border-color:var(--accent);color:#1b1300}
 button.ok{background:var(--ok);border-color:var(--ok);color:#03190f}
 button:disabled{opacity:.45}
 button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-input,select{font:16px var(--body);min-height:48px;border-radius:12px;border:1px solid var(--line);background:#0b121a;color:var(--fg);padding:0 12px;width:100%}
+input,select,textarea{font:16px var(--body);min-height:48px;border-radius:12px;border:1px solid var(--line);background:#0b121a;color:var(--fg);padding:0 12px;width:100%}
 .scr{position:fixed;inset:0;display:flex;flex-direction:column}
 .scr[hidden]{display:none!important}
 .wrap{padding:calc(env(safe-area-inset-top,0px) + 20px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 20px) max(16px,env(safe-area-inset-left,0px));overflow:auto;flex:1;display:flex;flex-direction:column;gap:16px;max-width:640px;margin:0 auto;width:100%}
@@ -60,6 +60,10 @@ input,select{font:16px var(--body);min-height:48px;border-radius:12px;border:1px
 /* visor */
 #view3d{position:absolute;inset:0;touch-action:none}
 #view3d canvas{display:block}
+.chip.info{background:#fff;color:#0f1720}
+textarea{padding:10px 12px;min-height:90px;resize:vertical}
+.ficha dt{color:var(--muted);font-size:13px}.ficha dd{margin:0 0 8px;font-weight:600}
+a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;background:#25d366;color:#04210f;font-weight:700;text-decoration:none}
 .chip{position:absolute;transform:translate(-50%,-50%);background:var(--accent);color:#1b1300;border:0;border-radius:999px;min-height:44px;padding:0 14px;font:700 14px var(--body);box-shadow:0 2px 10px #0008;white-space:nowrap}
 #spin{position:absolute;inset:0;touch-action:none;display:flex;align-items:center;justify-content:center;background:#000}
 #spin img{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none;transform-origin:center}
@@ -76,7 +80,7 @@ input,select{font:16px var(--body);min-height:48px;border-radius:12px;border:1px
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>prueba</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.2</span></div>
     <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
     <div class="card">
       <h2>Lugar (vista hacia afuera)</h2>
@@ -135,7 +139,7 @@ input,select{font:16px var(--body);min-height:48px;border-radius:12px;border:1px
   <div id="view3d"></div>
   <div id="spin" hidden><img id="spin-img" alt="Máquina"></div>
   <div id="chips" style="position:absolute;inset:0;pointer-events:none"></div>
-  <div class="top"><div class="msg" id="v-tit">Vista</div><button id="b-vmenu" style="pointer-events:auto">Opciones</button></div>
+  <div class="top"><div class="msg" id="v-tit">Vista</div><div class="row" style="flex:0 0 auto;pointer-events:auto"><button id="b-ficha">Ficha</button><button id="b-vmenu">Opciones</button></div></div>
   <div class="bot" id="v-bot">
     <button id="b-vsalir">Inicio</button>
     <button id="b-giro">Usar giro</button>
@@ -370,7 +374,7 @@ function newProject(tipo, full){
 }
 
 /* ================== captura: lugar ================== */
-const CAP = { yawU:0, closed:false, yaw:0, pitch:0, roll:0, src:'', lastT:0, stillSince:0, prevYaw:0, prevPitch:0, busy:false, shots:[], ring:0 };
+const CAP = { sharp:[], movidas:0, yawU:0, closed:false, yaw:0, pitch:0, roll:0, src:'', lastT:0, stillSince:0, prevYaw:0, prevPitch:0, busy:false, shots:[], ring:0 };
 function currentOrientation(dxVis){
   // giro: giroscopio si hay; si no, la imagen. Inclinación: acelerómetro (o giroscopio).
   if (CAM.demo){ return {yaw:CAM.demoYawVis, pitch:CAM.demoPitch, roll:CAM.demoRoll, src:'demo'}; }
@@ -392,7 +396,7 @@ async function startLugar(full){
   mode='lugar';
   point = { id: uid(), n: P.puntos.length+1, shots: [], gps:null, heading0:null, flechas:[] };
   targets = sphereTargets(P.full);
-  CAP.yaw=0; CAP.yawU=0; CAP.closed=false; CAP.shots=[]; S.yawGyro0=null; VT.prev=null; VT.first=null; CAM.demoYawVis=0; CAM.demoYaw=0; CAM.demoPitch=0; CAM.demoRoll=0;
+  CAP.yaw=0; CAP.yawU=0; CAP.closed=false; CAP.shots=[]; CAP.sharp=[]; CAP.movidas=0; S.yawGyro0=null; VT.prev=null; VT.first=null; CAM.demoYawVis=0; CAM.demoYaw=0; CAM.demoPitch=0; CAM.demoRoll=0;
   show('s-cam'); $('ghost').hidden=true; $('b-shot').hidden=false; $('mini').hidden=false;
   $('msg').textContent = P.puntos.length ? 'Primera foto mirando hacia el próximo punto (o hacia la entrada).' : 'Primera foto mirando hacia donde vas a caminar después.';
   await startSensors();
@@ -515,18 +519,36 @@ async function grabFrame(maxSide){
   const s = Math.min(1, maxSide/Math.max(w0,h0));
   const c=document.createElement('canvas'); c.width=Math.round(w0*s); c.height=Math.round(h0*s);
   const g=c.getContext('2d');
-  if (CAM.demo){ renderDemo(g, c.width, c.height, CAM.demoYaw, CAM.demoPitch, CAM.demoRoll); }
+  if (CAM.demo){ renderDemo(g, c.width, c.height, CAM.demoYaw, CAM.demoPitch, CAM.demoRoll); if (CAM.blurTest){ const t=document.createElement('canvas'); t.width=c.width; t.height=c.height; t.getContext('2d').drawImage(c,0,0); g.filter='blur(8px)'; g.drawImage(t,0,0); g.filter='none'; CAM.blurTest--; } }
   else if (land){ g.translate(c.width/2,c.height/2); g.rotate(Math.PI/2); g.drawImage(src, -c.height/2, -c.width/2, c.height, c.width); }
   else g.drawImage(src,0,0,c.width,c.height);
   return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+}
+// nitidez: varianza del laplaciano en una copia chica; foto movida = mucho menos que las anteriores
+async function nitidez(blob){
+  const bmp=await createImageBitmap(blob); const w=160, h=Math.max(1,Math.round(bmp.height*w/bmp.width));
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(bmp,0,0,w,h); bmp.close&&bmp.close();
+  const d=g.getImageData(0,0,w,h).data; const y=new Float32Array(w*h); for (let i=0,k=0;i<y.length;i++,k+=4) y[i]=d[k]*0.3+d[k+1]*0.59+d[k+2]*0.11;
+  let s=0,s2=0,a=0,a2=0,n=0; for (let j=1;j<h-1;j++) for (let i=1;i<w-1;i++){ const q=j*w+i; const l=4*y[q]-y[q-1]-y[q+1]-y[q-w]-y[q+w]; s+=l; s2+=l*l; a+=y[q]; a2+=y[q]*y[q]; n++; }
+  const m=s/n, ma=a/n; // detalle fino relativo al contraste: una pared lisa no cuenta como movida
+  return (s2/n-m*m)/(a2/n-ma*ma+25);
+}
+function movida(val){
+  // como mucho un reintento seguido: nunca trabar la captura
+  const h=CAP.sharp.slice(-5); if (h.length<2 || CAP.seguidas>=1){ CAP.seguidas=0; return false; }
+  const med=[...h].sort((a,b)=>a-b)[Math.floor(h.length/2)];
+  if (val < med*0.4){ CAP.seguidas=(CAP.seguidas||0)+1; return true; }
+  CAP.seguidas=0; return false;
 }
 async function autoShot(tg, o){
   if (CAP.busy) return; CAP.busy=true;
   try {
     // en el primer disparo fijamos el origen del giro (antes de esperar nada)
     if (point.shots.length===0){ VT.first = VT.prev ? VT.prev.slice() : null; CAP.yawU=0; CAP.closed=false; if (S.hasGyro && S.oriLast){ const oo=oriToCam(S.oriLast.a,S.oriLast.b,S.oriLast.g); S.yawGyro0=oo.yaw; } CAP.yaw=0; o={...o,yaw:0}; if (CAM.demo) CAM.demoYawVis=0; }
-    flash();
     const blob = await grabFrame(1280);
+    const nit = await nitidez(blob);
+    if (movida(nit)){ CAP.movidas=(CAP.movidas||0)+1; toast('Salió movida. Quedate quieto un segundo y sale sola.'); CAP.stillSince=performance.now()+700; return; }
+    CAP.sharp.push(nit); flash();
     const key = 'f_'+uid(); await saveBlob(key, blob);
     point.shots.push({ key, tid:tg.id, yaw:o.yaw, yawU:CAP.yawU, ty: CAM.demo ? CAM.demoYaw : undefined, pitch:o.pitch, roll:o.roll, src:o.src });
     if (navigator.vibrate) navigator.vibrate(40);
@@ -719,7 +741,7 @@ function autoArrows(){
 }
 
 /* ================== visor 360 ================== */
-const V = { renderer:null, scene:null, camera:null, mesh:null, lon:0, lat:0, fov:75, giro:false, proj:null, idx:0, place:null };
+const V = { auto:false, placeInfo:false, renderer:null, scene:null, camera:null, mesh:null, lon:0, lat:0, fov:75, giro:false, proj:null, idx:0, place:null };
 function initViewer(){
   if (V.renderer) return;
   const el=$('view3d');
@@ -729,9 +751,9 @@ function initViewer(){
   const geo = new THREE.SphereGeometry(10, 64, 32); geo.scale(-1,1,1);
   V.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color:0x222222})); V.scene.add(V.mesh);
   let down=null, pinch=null;
-  el.addEventListener('pointerdown', e=>{ down={x:e.clientX,y:e.clientY,lon:V.lon,lat:V.lat,id:e.pointerId,moved:false}; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointerdown', e=>{ V.auto=false; down={x:e.clientX,y:e.clientY,lon:V.lon,lat:V.lat,id:e.pointerId,moved:false}; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', e=>{ if (!down||down.id!==e.pointerId||pinch) return; const k=V.fov/innerHeight; const dx=e.clientX-down.x, dy=e.clientY-down.y; if (Math.abs(dx)+Math.abs(dy)>6) down.moved=true; V.lon=down.lon - dx*k; V.lat=clamp(down.lat + dy*k,-85,85); });
-  el.addEventListener('pointerup', e=>{ if (down && !down.moved && V.place) placeArrow(e.clientX,e.clientY); down=null; });
+  el.addEventListener('pointerup', e=>{ if (down && !down.moved){ if (V.placeInfo) addInfoAt(e.clientX,e.clientY); else if (V.place) placeArrow(e.clientX,e.clientY); } down=null; });
   el.addEventListener('wheel', e=>{ V.fov=clamp(V.fov+e.deltaY*0.05,35,100); e.preventDefault(); }, {passive:false});
   el.addEventListener('touchstart', e=>{ if (e.touches.length===2){ pinch={d:Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY), fov:V.fov}; } }, {passive:true});
   el.addEventListener('touchmove', e=>{ if (pinch && e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); V.fov=clamp(pinch.fov*pinch.d/d,35,100); } }, {passive:true});
@@ -746,6 +768,7 @@ function renderViewer(){
   if ($('s-visor').hidden || !V.proj || V.proj.tipo!=='lugar') return;
   if (V.giro && S.oriLast){ const o=oriToCam(S.oriLast.a,S.oriLast.b,S.oriLast.g); if (!giroRef) giroRef={yaw:o.yaw, lon:V.lon}; V.lon = giroRef.lon + wrap180(o.yaw-giroRef.yaw); V.lat=clamp(o.pitch,-85,85); }
   else if (V.giro && S.grav){ const gr=gravToCam(S.grav.x,S.grav.y,S.grav.z); V.lat=clamp(gr.pitch,-85,85); }
+  else if (V.auto){ V.lon += 0.06; }
   V.camera.fov=V.fov; V.camera.updateProjectionMatrix();
   // three: mirar en dirección (lon, lat); nuestra esfera invertida en X
   const t=basis(V.lon, V.lat, 0).f; V.camera.lookAt(-t[2], t[1], -t[0]);
@@ -761,6 +784,13 @@ function placeChips(){
     const vis = v.z<1 && Math.abs(v.x)<1.1 && Math.abs(v.y)<1.1;
     el.hidden=!vis; if (vis){ el.style.left=((v.x+1)/2*innerWidth)+'px'; el.style.top=((1-v.y)/2*innerHeight)+'px'; }
   }
+  for (const inf of (pt.infos||[])){
+    let el=box.querySelector(`[data-info="${inf.id}"]`);
+    if (!el){ el=document.createElement('button'); el.className='chip info'; el.dataset.info=inf.id; el.style.pointerEvents='auto'; el.textContent='ℹ️ '+inf.titulo; el.onclick=()=>showInfo(inf); box.appendChild(el); }
+    const d=basis(inf.yaw,inf.pitch,0).f; const v=new THREE.Vector3(-d[2],d[1],-d[0]).project(V.camera);
+    const vis = v.z<1 && Math.abs(v.x)<1.1 && Math.abs(v.y)<1.1;
+    el.hidden=!vis; if (vis){ el.style.left=((v.x+1)/2*innerWidth)+'px'; el.style.top=((1-v.y)/2*innerHeight)+'px'; }
+  }
 }
 async function openViewer(proj, idx){
   V.proj=proj; V.idx=idx||0; $('chips').innerHTML='';
@@ -770,7 +800,7 @@ async function openViewer(proj, idx){
     const pt=proj.puntos[V.idx]; $('v-tit').textContent=`${proj.nombre} · Punto ${V.idx+1} de ${proj.puntos.length}`;
     const blob=await loadBlob(pt.pano); const url=URL.createObjectURL(blob);
     new THREE.TextureLoader().load(url, tex=>{ tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false; V.mesh.material.dispose(); V.mesh.material=new THREE.MeshBasicMaterial({map:tex}); });
-    V.lon=0; V.lat=0; $('b-sig').hidden=false; $('b-giro').hidden=false; $('b-sig').textContent='Otro punto';
+    V.lon=0; V.lat=0; V.auto=!V.giro; V.placeInfo=false; $('b-sig').hidden=false; $('b-giro').hidden=false; $('b-sig').textContent='Otro punto';
   } else openSpin(proj);
 }
 function gotoPoint(i){ if (i>=0) openViewer(V.proj, i); }
@@ -784,7 +814,7 @@ function placeArrow(x,y){
 /* ================== máquina: anillo ================== */
 const RING_N = 24;
 async function startMaquina(){
-  newProject('maquina'); mode='maquina'; CAP.ring=0;
+  newProject('maquina'); mode='maquina'; CAP.ring=0; CAP.sharp=[]; CAP.movidas=0;
   await startSensors(); CAM.demo && buildDemoScene();
   show('s-cam'); $('mini').hidden=false; $('b-shot').hidden=false;
   if (!await startCamera()){ show('s-inicio'); return; }
@@ -813,7 +843,10 @@ function loopMaquina(){
 async function shotMaquina(){
   if (CAP.busy) return; CAP.busy=true;
   try{
-    flash(); const blob=await grabFrame(1280); const key='m_'+uid(); await saveBlob(key, blob);
+    const blob=await grabFrame(1280); const nit=await nitidez(blob);
+    if (!CAP.detalle && movida(nit)){ CAP.movidas=(CAP.movidas||0)+1; toast('Salió movida. Quedate quieto y sacala de nuevo.'); return; }
+    if (!CAP.detalle) CAP.sharp.push(nit);
+    flash(); const key='m_'+uid(); await saveBlob(key, blob);
     if (CAP.detalle){ P.detalles.push({key, nombre:CAP.detalle}); CAP.detalle=null; $('ghost').hidden=true; toast('Detalle guardado.'); }
     else {
       const ring=P.anillos[CAP.ring]; ring.push({key, heading: S.hasCompass ? compassHeading() : null});
@@ -844,7 +877,7 @@ async function finishMaquina(){
   await DB.put(P); openViewer(P,0);
 }
 // visor "girar la máquina"
-const SP = { frames:[], ring:0, i:0, zoom:1 };
+const SP = { frames:[], ring:0, i:0, zoom:1, auto:false };
 async function openSpin(proj){
   $('view3d').hidden=true; $('spin').hidden=false; $('b-sig').hidden=true; $('b-giro').hidden=true;
   $('v-tit').textContent = proj.nombre + ' · arrastrá para girar';
@@ -852,14 +885,15 @@ async function openSpin(proj){
   for (const ring of proj.anillos){ const urls=[]; for (const s of ring){ urls.push(URL.createObjectURL(await loadBlob(s.key))); } SP.frames.push(urls); }
   // precarga
   SP.frames.flat().forEach(u=>{ const im=new Image(); im.src=u; });
-  SP.ring=0; SP.i=0; SP.zoom=1; drawSpin();
+  SP.ring=0; SP.i=0; SP.zoom=1; SP.auto=true; drawSpin();
   const box=$('chips'); box.innerHTML='';
   proj.detalles.forEach((d,k)=>{ const b=document.createElement('button'); b.className='chip'; b.style.cssText+=`;pointer-events:auto;left:auto;right:${12}px;top:${110+k*54}px;transform:none`; b.textContent='🔍 '+d.nombre; b.onclick=async()=>{ const u=URL.createObjectURL(await loadBlob(d.key)); const sh=$('sheet'); sh.hidden=false; sh.innerHTML=`<h2>${esc(d.nombre)}</h2><img src="${u}" alt="${esc(d.nombre)}" style="border-radius:12px"><button id="det-x">Cerrar</button>`; $('det-x').onclick=()=>sh.hidden=true; }; box.appendChild(b); });
 }
 function drawSpin(){ const r=SP.frames[SP.ring]; if (!r||!r.length) return; $('spin-img').src=r[((SP.i%r.length)+r.length)%r.length]; $('spin-img').style.transform=`scale(${SP.zoom})`; }
 (function spinEvents(){
   const el=$('spin'); let d=null;
-  el.addEventListener('pointerdown', e=>{ d={x:e.clientX,y:e.clientY,i:SP.i,ring:SP.ring}; el.setPointerCapture(e.pointerId); });
+  setInterval(()=>{ if (SP.auto && !$('spin').hidden && !$('s-visor').hidden){ SP.i++; drawSpin(); } }, 160);
+  el.addEventListener('pointerdown', e=>{ SP.auto=false; d={x:e.clientX,y:e.clientY,i:SP.i,ring:SP.ring}; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', e=>{ if (!d) return; const step=Math.max(12, innerWidth/ (SP.frames[SP.ring]?.length||24) /1.2); SP.i = d.i - Math.round((e.clientX-d.x)/step); const dr=Math.round((d.y-e.clientY)/120); SP.ring=clamp(d.ring+dr,0,SP.frames.length-1); drawSpin(); });
   el.addEventListener('pointerup', ()=>{ d=null; });
   el.addEventListener('wheel', e=>{ SP.zoom=clamp(SP.zoom-e.deltaY*0.002,1,3); drawSpin(); e.preventDefault(); }, {passive:false});
@@ -883,18 +917,98 @@ function visorMenu(){
     sh.innerHTML = `<h2>Opciones</h2>
       <label class="small muted" for="vm-nom">Nombre del recorrido</label><input id="vm-nom" value="${esc(p.nombre)}">
       ${pt.flechas.length ? `<div class="small muted">Acomodar flechas: elegí una y tocá en la vista dónde va.</div><div class="row">${pt.flechas.map(f=>{const i=p.puntos.findIndex(x=>x.id===f.to); return `<button data-fl="${f.to}">Flecha al punto ${i+1}</button>`;}).join('')}</div>` : ''}
+      <button id="vm-info">Agregar dato sobre la foto (ℹ️)</button>
       <div id="map"></div>
       <button id="vm-dl">Descargar panorámica (JPG)</button>
       <button id="vm-ok" class="ok">Cerrar</button>`;
+    $('vm-info').onclick=()=>{ V.placeInfo=true; V.auto=false; sh.hidden=true; toast('Tocá en la vista dónde va el dato.'); };
     sh.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{ V.place=b.dataset.fl; sh.hidden=true; toast('Tocá en la vista dónde va la flecha.'); });
     const pts=p.puntos.filter(x=>x.gps);
     if (pts.length && window.L){ setTimeout(()=>{ const m=L.map('map',{attributionControl:true}); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(m); const ll=[]; p.puntos.forEach((x,i)=>{ if (!x.gps) return; ll.push([x.gps.lat,x.gps.lng]); L.marker([x.gps.lat,x.gps.lng]).addTo(m).bindPopup('Punto '+(i+1)+' (±'+Math.round(x.gps.acc)+' m)').on('click',()=>{ sh.hidden=true; gotoPoint(i); }); }); if (ll.length>1) L.polyline(ll,{color:'#f2a516'}).addTo(m); m.fitBounds(L.latLngBounds(ll).pad(0.4), {maxZoom:19}); }, 50); }
     else $('map').outerHTML='<p class="small muted">Sin GPS en estos puntos: no hay mapa.</p>';
     $('vm-dl').onclick=async()=>{ const b=await loadBlob(pt.pano); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`inmex-punto-${V.idx+1}.jpg`; document.body.appendChild(a); a.click(); a.remove(); };
   } else {
-    sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">Las mismas fotos sirven después para armar el modelo 3D real en la computadora.</p><button id="vm-ok" class="ok">Cerrar</button>`;
+    sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">Las mismas fotos sirven después para armar el modelo 3D real.</p><button id="vm-fic">Editar ficha (precio, WhatsApp)</button><button id="vm-ok" class="ok">Cerrar</button>`;
   }
+  if ($('vm-fic')) $('vm-fic').onclick=()=>editFicha();
   $('vm-ok').onclick=()=>{ p.nombre=$('vm-nom').value.trim()||p.nombre; DB.put(p); sh.hidden=true; $('v-tit').textContent=p.nombre; };
+}
+
+/* ================== datos sobre la foto (ℹ️) ================== */
+function campoFoto(id){ return `<div class="row"><label class="small muted" style="flex-basis:100%">Foto (opcional)</label><button type="button" data-cam="${id}">📷 Tomar foto</button><button type="button" data-gal="${id}">🖼️ Elegir de la galería</button><input type="file" accept="image/*" capture="environment" id="${id}-c" hidden><input type="file" accept="image/*" id="${id}-g" hidden></div><img id="${id}-p" alt="" hidden style="border-radius:12px;max-height:180px;object-fit:contain">`; }
+function enlazarFoto(id, onFile){
+  $(id+'-c').onchange=$(id+'-g').onchange=e=>{ const f=e.target.files[0]; if (!f) return; onFile(f); const im=$(id+'-p'); im.src=URL.createObjectURL(f); im.hidden=false; };
+  document.querySelector(`[data-cam="${id}"]`).onclick=()=>$(id+'-c').click();
+  document.querySelector(`[data-gal="${id}"]`).onclick=()=>$(id+'-g').click();
+}
+async function achicar(file){
+  const bmp=await createImageBitmap(file); const s=Math.min(1,1280/Math.max(bmp.width,bmp.height));
+  const c=document.createElement('canvas'); c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s); c.getContext('2d').drawImage(bmp,0,0,c.width,c.height); bmp.close&&bmp.close();
+  return await new Promise(r=>c.toBlob(r,'image/jpeg',0.8));
+}
+function addInfoAt(x,y){
+  V.placeInfo=false; V.auto=false;
+  const v=new THREE.Vector3((x/innerWidth)*2-1, -(y/innerHeight)*2+1, 0.5).unproject(V.camera).normalize();
+  const yaw=Math.atan2(-v.z, -v.x)*R2D, pitch=Math.asin(clamp(v.y,-1,1))*R2D;
+  editInfo({ id:uid(), yaw, pitch, titulo:'', texto:'', foto:null }, true);
+}
+function editInfo(inf, nuevo){
+  const sh=$('sheet'); sh.hidden=false; let file=null;
+  sh.innerHTML=`<h2>${nuevo?'Nuevo dato':'Editar dato'}</h2>
+    <label class="small muted" for="if-t">Título (ej.: Motor, Horas, Estado de orugas)</label><input id="if-t" maxlength="40" value="${esc(inf.titulo)}">
+    <label class="small muted" for="if-x">Detalle</label><textarea id="if-x" maxlength="600">${esc(inf.texto)}</textarea>
+    ${campoFoto('if-f')}
+    <div class="row"><button id="if-no">Cancelar</button><button class="pri" id="if-ok">Guardar</button></div>`;
+  enlazarFoto('if-f', f=>{ file=f; });
+  $('if-no').onclick=()=>{ sh.hidden=true; };
+  $('if-ok').onclick=async()=>{
+    const t=$('if-t').value.trim(); if (!t){ toast('Poné un título.'); return; }
+    inf.titulo=t; inf.texto=$('if-x').value.trim();
+    if (file){ const k='i_'+uid(); await saveBlob(k, await achicar(file)); inf.foto=k; }
+    const pt=V.proj.puntos[V.idx]; pt.infos=pt.infos||[]; if (nuevo) pt.infos.push(inf);
+    await DB.put(V.proj); sh.hidden=true; $('chips').innerHTML=''; toast('Dato guardado.');
+  };
+}
+async function showInfo(inf){
+  const sh=$('sheet'); sh.hidden=false; const u = inf.foto ? URL.createObjectURL(await loadBlob(inf.foto)) : '';
+  sh.innerHTML=`<h2>${esc(inf.titulo)}</h2>${inf.texto?`<p style="white-space:pre-wrap;margin:0">${esc(inf.texto)}</p>`:''}${u?`<img src="${u}" alt="${esc(inf.titulo)}" style="border-radius:12px">`:''}
+    <div class="row"><button id="in-ed">Editar</button><button id="in-del">Quitar</button><button class="ok" id="in-x">Cerrar</button></div>`;
+  $('in-x').onclick=()=>sh.hidden=true;
+  $('in-ed').onclick=()=>editInfo(inf,false);
+  $('in-del').onclick=async()=>{ const pt=V.proj.puntos[V.idx]; pt.infos=(pt.infos||[]).filter(x=>x.id!==inf.id); await DB.put(V.proj); sh.hidden=true; $('chips').innerHTML=''; if (V.proj.tipo!=='lugar') openSpin(V.proj); };
+}
+
+/* ================== ficha (precio, ubicación, WhatsApp) ================== */
+function waNum(t){ let d=String(t||'').replace(/\D/g,''); if (!d) return ''; if (d.startsWith('54')) return d; d=d.replace(/^0/,''); if (d.length===12){ for (const k of [2,3,4]) if (d.substr(k,2)==='15'){ d=d.slice(0,k)+d.slice(k+2); break; } } return '549'+d; }
+function lsGet(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function showFicha(){
+  const p=V.proj; const f=p.ficha||{};
+  if (!f.precio && !f.descripcion && !f.ubicacion && !f.whatsapp) return editFicha();
+  const sh=$('sheet'); sh.hidden=false; const n=waNum(f.whatsapp);
+  const txt=encodeURIComponent(`Hola, vi ${p.nombre} en Inmex 360 y quiero más información.`);
+  sh.innerHTML=`<h2>${esc(p.nombre)}</h2><dl class="ficha" style="margin:0">
+    ${f.precio?`<dt>Precio</dt><dd>${esc(f.precio)}</dd>`:''}${f.ubicacion?`<dt>Dónde está</dt><dd>${esc(f.ubicacion)}</dd>`:''}${f.descripcion?`<dt>Descripción</dt><dd style="white-space:pre-wrap;font-weight:400">${esc(f.descripcion)}</dd>`:''}</dl>
+    ${n?`<a class="btn" id="fi-wa" href="https://wa.me/${n}?text=${txt}" target="_blank" rel="noopener">💬 Consultar por WhatsApp</a>`:''}
+    <div class="row"><button id="fi-ed">Editar ficha</button><button class="ok" id="fi-x">Cerrar</button></div>`;
+  $('fi-x').onclick=()=>sh.hidden=true; $('fi-ed').onclick=editFicha;
+}
+function editFicha(){
+  const p=V.proj; const f=p.ficha||{}; const sh=$('sheet'); sh.hidden=false;
+  sh.innerHTML=`<h2>Ficha</h2><p class="small muted" style="margin:0">Es lo que va a ver el comprador al tocar "Ficha".</p>
+    <label class="small muted" for="fe-n">Nombre</label><input id="fe-n" maxlength="80" value="${esc(p.nombre)}">
+    <label class="small muted" for="fe-p">Precio (ej.: USD 85.000 o "Consultar")</label><input id="fe-p" maxlength="40" value="${esc(f.precio||'')}">
+    <label class="small muted" for="fe-u">Dónde está</label><input id="fe-u" maxlength="80" value="${esc(f.ubicacion||'')}">
+    <label class="small muted" for="fe-d">Descripción (año, horas, estado, qué incluye)</label><textarea id="fe-d" maxlength="1500">${esc(f.descripcion||'')}</textarea>
+    <label class="small muted" for="fe-w">WhatsApp para consultas</label><input id="fe-w" type="tel" inputmode="tel" maxlength="20" placeholder="381 555 1234" value="${esc(f.whatsapp||lsGet('inmex-wa'))}">
+    <div class="row"><button id="fe-no">Cancelar</button><button class="pri" id="fe-ok">Guardar</button></div>`;
+  $('fe-no').onclick=()=>sh.hidden=true;
+  $('fe-ok').onclick=async()=>{
+    p.nombre=$('fe-n').value.trim()||p.nombre;
+    p.ficha={ precio:$('fe-p').value.trim(), ubicacion:$('fe-u').value.trim(), descripcion:$('fe-d').value.trim(), whatsapp:$('fe-w').value.trim() };
+    if (p.ficha.whatsapp) lsSet('inmex-wa', p.ficha.whatsapp);
+    await DB.put(p); $('v-tit').textContent=p.nombre + (p.tipo==='lugar' ? ` · Punto ${V.idx+1} de ${p.puntos.length}` : ''); showFicha();
+  };
 }
 
 /* ================== modo de ejemplo (sin celular) ================== */
@@ -924,9 +1038,10 @@ $('b-vsalir').onclick=()=>{ show('s-inicio'); refreshList(); };
 $('b-giro').onclick=async()=>{ await startSensors(); V.giro=!V.giro; giroRef=null; $('b-giro').textContent = V.giro ? 'Usar dedo' : 'Usar giro'; };
 $('b-sig').onclick=()=>{ P=V.proj; startLugar(P.full); };
 $('b-vmenu').onclick=visorMenu;
+$('b-ficha').onclick=showFicha;
 refreshList();
 // para pruebas automáticas
-window.__inmex = { covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+window.__inmex = { V, SP, addInfoAt, showFicha, editFicha, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
 </script>
 </body>
 </html>
