@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Inmex 360</title>
+<meta name="theme-color" content="#0f1720">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Layout: pantallas a pantalla completa (inicio, captura, armado, visor); controles abajo al alcance del pulgar */
+:root{
+  --bg:#0f1720; --panel:#17222e; --line:#2a3a4a; --fg:#e8eef3; --muted:#9db0c0;
+  --accent:#f2a516; --ok:#3ccf8e; --warn:#ff6b4a;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button{font:600 16px var(--body);min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:0 18px;cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#1b1300}
+button.ok{background:var(--ok);border-color:var(--ok);color:#03190f}
+button:disabled{opacity:.45}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input,select{font:16px var(--body);min-height:48px;border-radius:12px;border:1px solid var(--line);background:#0b121a;color:var(--fg);padding:0 12px;width:100%}
+.scr{position:fixed;inset:0;display:flex;flex-direction:column}
+.scr[hidden]{display:none!important}
+.wrap{padding:calc(env(safe-area-inset-top,0px) + 20px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 20px) max(16px,env(safe-area-inset-left,0px));overflow:auto;flex:1;display:flex;flex-direction:column;gap:16px;max-width:640px;margin:0 auto;width:100%}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:30px;letter-spacing:.5px}
+.brand span{color:var(--accent);font:700 13px var(--display);letter-spacing:2px;text-transform:uppercase}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.card h2{font-size:20px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 auto}
+.sens{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-top:5px}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:10px;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px}
+.item b{font-family:var(--display)}
+/* captura */
+#cam{background:#000}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.35;pointer-events:none}
+#hud{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.top{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:8px;background:linear-gradient(#000a,#0000)}
+.msg{font:600 17px var(--body);text-shadow:0 1px 3px #000;max-width:70%}
+.count{font:700 22px var(--display);color:var(--accent);text-shadow:0 1px 3px #000}
+.bot button{white-space:nowrap;font-size:15px;padding:0 14px}
+.bot{position:absolute;left:0;right:0;bottom:0;padding:12px max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 14px) max(12px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;justify-content:space-between;background:linear-gradient(#0000,#000b)}
+.shutter{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:#fff3;padding:0;min-height:0}
+.shutter:active{background:#fff8}
+#mini{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 104px);width:132px;height:132px;pointer-events:none}
+/* visor */
+#view3d{position:absolute;inset:0;touch-action:none}
+#view3d canvas{display:block}
+.chip{position:absolute;transform:translate(-50%,-50%);background:var(--accent);color:#1b1300;border:0;border-radius:999px;min-height:44px;padding:0 14px;font:700 14px var(--body);box-shadow:0 2px 10px #0008;white-space:nowrap}
+#spin{position:absolute;inset:0;touch-action:none;display:flex;align-items:center;justify-content:center;background:#000}
+#spin img{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none;transform-origin:center}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px;max-height:80%;overflow:auto;z-index:20}
+.bar{height:10px;background:#0b121a;border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0}
+#map{height:220px;border-radius:12px}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);background:#000c;color:#fff;padding:10px 16px;border-radius:12px;z-index:50;font-weight:600;max-width:90%;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- INICIO -->
+<section class="scr" id="s-inicio">
+  <div class="wrap">
+    <div class="brand"><h1>Inmex 360</h1><span>prueba</span></div>
+    <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
+    <div class="card">
+      <h2>Lugar (vista hacia afuera)</h2>
+      <p class="muted small">Galpón, predio, obra. En cada punto girás sobre vos mismo y la esfera se va completando. Después caminás al siguiente punto.</p>
+      <div class="row">
+        <button class="pri" id="b-lugar-rapido">Vuelta rápida (10 fotos)</button>
+        <button id="b-lugar-completo">Esfera completa (21)</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Máquina (vista hacia adentro)</h2>
+      <p class="muted small">Caminás alrededor de la máquina y el anillo se va llenando: 24 fotos por vuelta. Después, fotos de detalle.</p>
+      <button class="pri" id="b-maquina">Empezar máquina</button>
+    </div>
+    <div class="card">
+      <h2>Tu celular</h2>
+      <div class="sens" id="sens"><span class="dot" style="background:var(--muted)"></span><span>Tocá "Revisar sensores".</span></div>
+      <button id="b-sens">Revisar sensores</button>
+    </div>
+    <div class="card" id="c-guardados">
+      <h2>Guardados en este celular</h2>
+      <div class="list" id="lista"><span class="muted small">Todavía no hay nada.</span></div>
+    </div>
+    <p class="muted small">¿Querés ver cómo funciona sin salir? <a href="#" id="a-demo" style="color:var(--accent)">Probar con una escena de ejemplo</a> (girás arrastrando el dedo).</p>
+  </div>
+</section>
+
+<!-- CAPTURA -->
+<section class="scr" id="s-cam" hidden>
+  <div id="cam" style="position:absolute;inset:0">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="demo" style="position:absolute;inset:0;width:100%;height:100%" hidden></canvas>
+    <img id="ghost" alt="" hidden>
+    <canvas id="hud"></canvas>
+    <canvas id="mini"></canvas>
+  </div>
+  <div class="top"><div class="msg" id="msg">Preparando cámara…</div><div class="count" id="count">0/0</div></div>
+  <div class="bot">
+    <button id="b-cancelar">Salir</button>
+    <button class="shutter" id="b-shot" aria-label="Sacar foto"></button>
+    <button class="ok" id="b-listo">Listo</button>
+  </div>
+</section>
+
+<!-- ARMADO -->
+<section class="scr" id="s-armado" hidden>
+  <div class="wrap" style="justify-content:center">
+    <h2 id="arm-t">Armando la vista 360…</h2>
+    <div class="bar"><i id="arm-bar"></i></div>
+    <p class="muted" id="arm-m">Uniendo fotos.</p>
+  </div>
+</section>
+
+<!-- VISOR -->
+<section class="scr" id="s-visor" hidden>
+  <div id="view3d"></div>
+  <div id="spin" hidden><img id="spin-img" alt="Máquina"></div>
+  <div id="chips" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div class="top"><div class="msg" id="v-tit">Vista</div><button id="b-vmenu" style="pointer-events:auto">Opciones</button></div>
+  <div class="bot" id="v-bot">
+    <button id="b-vsalir">Inicio</button>
+    <button id="b-giro">Usar giro</button>
+    <button class="pri" id="b-sig">Otro punto</button>
+  </div>
+</section>
+
+<div class="sheet" id="sheet" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+'use strict';
+/* ================== utilidades ================== */
+const $ = id => document.getElementById(id);
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+const wrap180 = a => { a = ((a + 180) % 360 + 360) % 360 - 180; return a; };
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function toast(t, ms=2600){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(), ms); }
+function show(id){ for (const s of document.querySelectorAll('.scr')) s.hidden = s.id !== id; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ================== almacenamiento (IndexedDB) ================== */
+const DB = (() => {
+  let dbp = null;
+  function open(){
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('inmex360', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('proy', {keyPath:'id'}); r.result.createObjectStore('blob'); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  async function tx(store, mode, fn){
+    const db = await open();
+    return new Promise((res, rej) => { const t = db.transaction(store, mode); const s = t.objectStore(store); const out = fn(s); t.oncomplete = () => res(out && out.result !== undefined ? out.result : out); t.onerror = () => rej(t.error); });
+  }
+  return {
+    put: (p) => tx('proy','readwrite', s => s.put(p)).catch(()=>{}),
+    all: () => tx('proy','readonly', s => s.getAll()).catch(()=>[]),
+    del: (id) => tx('proy','readwrite', s => s.delete(id)).catch(()=>{}),
+    putBlob: (k, b) => tx('blob','readwrite', s => s.put(b, k)).catch(()=>{}),
+    getBlob: (k) => tx('blob','readonly', s => s.get(k)).catch(()=>null),
+  };
+})();
+const mem = new Map(); // blobs en memoria (por si IndexedDB no anda)
+async function saveBlob(k, b){ mem.set(k, b); await DB.putBlob(k, b); }
+async function loadBlob(k){ return mem.get(k) || await DB.getBlob(k); }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ================== geometría ================== */
+// Mundo: X = derecha (este), Y = arriba, Z = adelante (norte). yaw gira a la derecha, pitch hacia arriba.
+function basis(yaw, pitch, roll){
+  const y=yaw*D2R, p=pitch*D2R, r=roll*D2R;
+  const f=[Math.sin(y)*Math.cos(p), Math.sin(p), Math.cos(y)*Math.cos(p)];
+  const r0=[Math.cos(y), 0, -Math.sin(y)];
+  const u0=[f[1]*r0[2]-f[2]*r0[1], f[2]*r0[0]-f[0]*r0[2], f[0]*r0[1]-f[1]*r0[0]];
+  const cr=Math.cos(r), sr=Math.sin(r);
+  const R=[r0[0]*cr+u0[0]*sr, r0[1]*cr+u0[1]*sr, r0[2]*cr+u0[2]*sr];
+  const U=[u0[0]*cr-r0[0]*sr, u0[1]*cr-r0[1]*sr, u0[2]*cr-r0[2]*sr];
+  return {f, r:R, u:U, r0, u0};
+}
+const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+/* ================== sensores ================== */
+const S = {
+  ori:null, oriAbs:false, oriCount:0, oriLast:null, grav:null, gravCount:0,
+  hasGyro:false, hasGrav:false, hasCompass:false,
+  yawVis:0, yawGyro0:null,
+  started:false,
+};
+function oriToCam(a,b,g){
+  a*=D2R; b*=D2R; g*=D2R;
+  const cA=Math.cos(a), sA=Math.sin(a), cB=Math.cos(b), sB=Math.sin(b), cG=Math.cos(g), sG=Math.sin(g);
+  // W3C: mundo (este, norte, arriba). Columnas de R.
+  const col2=[-cB*sA, cA*cB, sB];
+  const col3=[cG*sA*sB + cA*sG, sA*sG - cA*cG*sB, cB*cG];
+  const F=[-col3[0], -col3[1], -col3[2]];
+  const Uw=col2;
+  const f=[F[0], F[2], F[1]], u=[Uw[0], Uw[2], Uw[1]];
+  const pitch=Math.asin(clamp(f[1],-1,1))*R2D;
+  const yaw=Math.atan2(f[0], f[2])*R2D;
+  const B=basis(yaw,pitch,0);
+  const roll=Math.atan2(-dot(u,B.r0), dot(u,B.u0))*R2D;
+  return {yaw, pitch, roll};
+}
+function gravToCam(gx,gy,gz){
+  if (isIOS){ gx=-gx; gy=-gy; gz=-gz; }
+  const n=Math.hypot(gx,gy,gz)||1; gx/=n; gy/=n; gz/=n;
+  return { pitch: Math.asin(clamp(-gz,-1,1))*R2D, roll: Math.atan2(gx, gy)*R2D };
+}
+function onOri(e){
+  if (e.alpha == null && e.beta == null) return;
+  if (e.type === 'deviceorientationabsolute' || e.absolute) S.hasCompass = true;
+  const prev = S.oriLast;
+  S.oriLast = {a:e.alpha||0, b:e.beta||0, g:e.gamma||0, t:performance.now()};
+  if (e.alpha != null && prev && Math.abs(prev.a - S.oriLast.a) > 0.01) S.oriCount++;
+  if (S.oriCount > 5) S.hasGyro = true;
+}
+function onMot(e){
+  const g = e.accelerationIncludingGravity; if (!g || g.x == null) return;
+  // filtro suave
+  const k = 0.25;
+  S.grav = S.grav ? {x:S.grav.x+(g.x-S.grav.x)*k, y:S.grav.y+(g.y-S.grav.y)*k, z:S.grav.z+(g.z-S.grav.z)*k} : {x:g.x,y:g.y,z:g.z};
+  S.gravCount++; if (S.gravCount > 3) S.hasGrav = true;
+}
+async function startSensors(){
+  if (S.started) return true;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission){
+      const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') toast('Sin permiso de sensores: la guía va a ser más simple.');
+    }
+    if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission){ await DeviceMotionEvent.requestPermission(); }
+  } catch(e){}
+  addEventListener('deviceorientation', onOri);
+  addEventListener('deviceorientationabsolute', onOri);
+  addEventListener('devicemotion', onMot);
+  S.started = true;
+  return true;
+}
+async function checkSensors(){
+  await startSensors();
+  await sleep(1500);
+  const rows = [
+    [S.hasGrav, 'Inclinación (acelerómetro)', 'Mide si apuntás arriba o abajo.'],
+    [S.hasGyro, 'Giroscopio', S.hasGyro ? 'Sigue el giro solo.' : 'No hay: el giro se sigue con la imagen de la cámara.'],
+    [S.hasCompass, 'Brújula', S.hasCompass ? 'Orienta el recorrido al norte.' : 'No hay o no da datos: las flechas se acomodan con el GPS o a mano.'],
+    [!!navigator.geolocation, 'GPS', 'Ubica cada punto en el mapa.'],
+    [!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia), 'Cámara', 'Necesaria.'],
+  ];
+  $('sens').innerHTML = rows.map(([ok,t,d]) => `<span class="dot" style="background:${ok?'var(--ok)':'var(--warn)'}"></span><span><b>${t}</b> · <span class="muted">${d}</span></span>`).join('');
+}
+
+/* ================== cámara (real o de ejemplo) ================== */
+const CAM = { stream:null, demo:false, demoYaw:0, demoPitch:0, demoRoll:0, demoScene:null, W:0, H:0 };
+// FOV supuesto de la cámara en vertical (retrato): horizontal y vertical en grados. Se recalibra al armar.
+let FOV = { h: 50, v: 64 };
+function setFovFromAspect(ar){ FOV.v = 2*Math.atan(Math.tan(FOV.h*D2R/2)/ar)*R2D; }
+async function startCamera(){
+  if (CAM.demo){ $('video').hidden = true; $('demo').hidden = false; buildDemoScene(); setFovFromAspect(0.75); return true; }
+  $('video').hidden = false; $('demo').hidden = true;
+  try {
+    CAM.stream = await navigator.mediaDevices.getUserMedia({ audio:false, video:{ facingMode:{ideal:'environment'}, width:{ideal:1600}, height:{ideal:1200}, aspectRatio:{ideal:4/3} } });
+    const v = $('video'); v.srcObject = CAM.stream; await v.play();
+    await new Promise(r => { if (v.videoWidth) r(); else v.onloadedmetadata = r; });
+    setFovFromAspect(Math.min(v.videoWidth,v.videoHeight)/Math.max(v.videoWidth,v.videoHeight));
+    return true;
+  } catch(e){
+    toast('No pude abrir la cámara. Revisá el permiso del navegador.', 4000); return false;
+  }
+}
+function stopCamera(){ if (CAM.stream){ CAM.stream.getTracks().forEach(t=>t.stop()); CAM.stream=null; } }
+// Escena de ejemplo: un galpón dibujado en equirectangular para probar sin celular.
+function buildDemoScene(){
+  if (CAM.demoScene) return;
+  const W=2048, H=1024, c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d');
+  const sky=g.createLinearGradient(0,0,0,H/2); sky.addColorStop(0,'#2b5d8a'); sky.addColorStop(1,'#a9c9de'); g.fillStyle=sky; g.fillRect(0,0,W,H/2);
+  const fl=g.createLinearGradient(0,H/2,0,H); fl.addColorStop(0,'#8a7b62'); fl.addColorStop(1,'#3d3426'); g.fillStyle=fl; g.fillRect(0,H/2,W,H/2);
+  const cols=['#d9534f','#f0ad4e','#5cb85c','#5bc0de','#9b59b6','#e67e22','#1abc9c','#34495e','#c0392b','#7f8c8d','#2ecc71','#8e44ad','#d35400','#16a085','#2c3e50','#f1c40f'];
+  for (let i=0;i<16;i++){ const x=i*W/16; g.fillStyle=cols[i]; const h=120+((i*53)%140); g.fillRect(x+12,H/2-h,W/16-24,h); g.fillStyle='#fff'; g.font='bold 44px sans-serif'; g.fillText(String(i+1), x+30, H/2-h+56); }
+  g.strokeStyle='#0004'; g.lineWidth=2; for (let x=0;x<W;x+=W/32){ g.beginPath(); g.moveTo(x,H/2); g.lineTo(x,H); g.stroke(); }
+  g.fillStyle='#fff8'; for (let i=0;i<40;i++){ g.beginPath(); g.arc((i*197)%W, 60+((i*71)%300), 6+(i%5)*3, 0, 7); g.fill(); }
+  g.fillStyle='#ffd34d'; g.beginPath(); g.arc(W*0.62, 90, 40, 0, 7); g.fill();
+  CAM.demoScene = g.getImageData(0,0,W,H);
+}
+function renderDemo(out, w, h, yaw, pitch, roll){
+  const sc=CAM.demoScene, SW=sc.width, SH=sc.height, sd=sc.data;
+  const img = out.createImageData(w,h), d=img.data;
+  const F=CAM.trueFov||FOV, B=basis(yaw,pitch,roll), tx=Math.tan(F.h*D2R/2), ty=Math.tan(F.v*D2R/2);
+  for (let j=0;j<h;j++){ const py=(1-2*(j+0.5)/h)*ty; for (let i=0;i<w;i++){ const px=(2*(i+0.5)/w-1)*tx;
+    const x=B.f[0]+B.r[0]*px+B.u[0]*py, y=B.f[1]+B.r[1]*px+B.u[1]*py, z=B.f[2]+B.r[2]*px+B.u[2]*py;
+    const n=Math.hypot(x,y,z), lon=Math.atan2(x,z), lat=Math.asin(y/n);
+    const si=Math.min(SW-1, Math.floor((lon/Math.PI+1)/2*SW)), sj=Math.min(SH-1, Math.floor((0.5-lat/Math.PI)*SH));
+    const s=(sj*SW+si)*4, o=(j*w+i)*4; d[o]=sd[s]; d[o+1]=sd[s+1]; d[o+2]=sd[s+2]; d[o+3]=255; } }
+  out.putImageData(img,0,0);
+}
+
+/* ================== seguimiento visual del giro (sin giroscopio) ================== */
+const VT = { W:120, H:160, prev:null, c:null, g:null };
+const pxToDeg = px => Math.atan(px*Math.tan(FOV.h*D2R/2)/(VT.W/2))*R2D;
+function vtFrame(src){
+  if (!VT.c){ VT.c=document.createElement('canvas'); VT.c.width=VT.W; VT.c.height=VT.H; VT.g=VT.c.getContext('2d',{willReadFrequently:true}); }
+  drawCover(VT.g, src, VT.W, VT.H);
+  const d=VT.g.getImageData(0,0,VT.W,VT.H).data, gray=new Float32Array(VT.W*VT.H);
+  for (let i=0,k=0;i<gray.length;i++,k+=4) gray[i]=d[k]*0.3+d[k+1]*0.59+d[k+2]*0.11;
+  let dx=0;
+  if (VT.prev){
+    const W=VT.W, H=VT.H, M=20; let best=1e18, bs=0;
+    const scores=[];
+    for (let s=-M;s<=M;s++){ let sum=0, n=0;
+      for (let j=(H*0.3)|0;j<(H*0.7)|0;j+=1){ const row=j*W; for (let i=M;i<W-M;i+=1){ sum+=Math.abs(gray[row+i]-VT.prev[row+i+s]); n++; } }
+      const v=sum/n; scores.push(v); if (v<best){best=v;bs=s;} }
+    // ajuste subpíxel
+    const k=bs+M; let sub=0; if (k>0 && k<scores.length-1){ const a=scores[k-1], b=scores[k], c=scores[k+1]; const den=a-2*b+c; if (den>0) sub=0.5*(a-c)/den; }
+    dx = bs + sub;
+  }
+  VT.prev=gray;
+  return dx; // >0: la escena se movió a la izquierda (giraste a la derecha)
+}
+function drawCover(g, src, w, h){
+  const sw = src.videoWidth || src.width, sh = src.videoHeight || src.height;
+  if (!sw || !sh) return;
+  const s = Math.max(w/sw, h/sh), dw=sw*s, dh=sh*s;
+  g.drawImage(src, (w-dw)/2, (h-dh)/2, dw, dh);
+}
+
+/* ================== objetivos de la esfera ================== */
+function sphereTargets(full){
+  // en la esfera completa se sigue por columnas: horizonte, arriba y abajo en el mismo rumbo, y recién ahí se gira
+  // (así el giro medido con la imagen casi no se corre)
+  const t=[]; let id=0;
+  for (let i=0;i<10;i++){
+    t.push({id:id++, yaw:i*36, pitch:0});
+    if (full && i%2===0){ t.push({id:id++, yaw:i*36, pitch:45}); t.push({id:id++, yaw:i*36, pitch:-45}); }
+  }
+  if (full) t.push({id:id++, yaw:0, pitch:85});
+  return t;
+}
+
+/* ================== estado de la app ================== */
+let P = null;          // proyecto actual
+let point = null;      // punto actual (lugar)
+let mode = null;       // 'lugar' | 'maquina'
+let targets = [];
+let loopOn = false;
+
+function newProject(tipo, full){
+  P = { id: uid(), tipo, full: !!full, nombre: tipo==='lugar' ? 'Recorrido ' + new Date().toLocaleDateString('es-AR') : 'Máquina ' + new Date().toLocaleDateString('es-AR'), fecha: Date.now(), puntos: [], anillos: [[]], detalles: [] };
+}
+
+/* ================== captura: lugar ================== */
+const CAP = { yawU:0, closed:false, yaw:0, pitch:0, roll:0, src:'', lastT:0, stillSince:0, prevYaw:0, prevPitch:0, busy:false, shots:[], ring:0 };
+function currentOrientation(dxVis){
+  // giro: giroscopio si hay; si no, la imagen. Inclinación: acelerómetro (o giroscopio).
+  if (CAM.demo){ return {yaw:CAM.demoYawVis, pitch:CAM.demoPitch, roll:CAM.demoRoll, src:'demo'}; }
+  let pitch=0, roll=0, yaw=CAP.yaw, src='vis';
+  if (S.hasGyro && S.oriLast){
+    const o=oriToCam(S.oriLast.a, S.oriLast.b, S.oriLast.g);
+    if (S.yawGyro0 == null) S.yawGyro0 = o.yaw;
+    yaw = wrap180(o.yaw - S.yawGyro0); pitch=o.pitch; roll=o.roll; src='giro';
+  } else {
+    if (S.hasGrav && S.grav){ const gr=gravToCam(S.grav.x,S.grav.y,S.grav.z); pitch=gr.pitch; roll=gr.roll; }
+    const cp=Math.max(0.3, Math.cos(pitch*D2R));
+    const dd = pxToDeg(dxVis)/cp; CAP.yawU += dd;
+    yaw = wrap180(CAP.yaw + dd);
+  }
+  return {yaw, pitch, roll, src};
+}
+async function startLugar(full){
+  if (!P || P.tipo!=='lugar') newProject('lugar', full);
+  mode='lugar';
+  point = { id: uid(), n: P.puntos.length+1, shots: [], gps:null, heading0:null, flechas:[] };
+  targets = sphereTargets(P.full);
+  CAP.yaw=0; CAP.yawU=0; CAP.closed=false; CAP.shots=[]; S.yawGyro0=null; VT.prev=null; VT.first=null; CAM.demoYawVis=0; CAM.demoYaw=0; CAM.demoPitch=0; CAM.demoRoll=0;
+  show('s-cam'); $('ghost').hidden=true; $('b-shot').hidden=false; $('mini').hidden=false;
+  $('msg').textContent = P.puntos.length ? 'Primera foto mirando hacia el próximo punto (o hacia la entrada).' : 'Primera foto mirando hacia donde vas a caminar después.';
+  await startSensors();
+  if (!await startCamera()){ show('s-inicio'); return; }
+  getGPS().then(g => { point.gps = g; });
+  if (S.hasCompass && S.oriLast) point.heading0 = compassHeading();
+  sizeHud(); loopOn=true; requestAnimationFrame(loopLugar);
+}
+function compassHeading(){
+  const e=S.oriLast; if (!e) return null; const o=oriToCam(e.a,e.b,e.g); // yaw absoluto aprox. respecto del norte
+  return ((-o.yaw)%360+360)%360; // W3C alpha crece antihorario; lo pasamos a rumbo horario
+}
+function getGPS(){
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout:15000, maximumAge:5000});
+  });
+}
+function sizeHud(){
+  const h=$('hud'), dpr=Math.min(2, devicePixelRatio||1); h.width=innerWidth*dpr; h.height=innerHeight*dpr;
+  const m=$('mini'); m.width=132*dpr; m.height=132*dpr;
+}
+addEventListener('resize', () => { if (!$('s-cam').hidden) sizeHud(); });
+
+function viewSource(){ return CAM.demo ? $('demo') : $('video'); }
+function loopLugar(t){
+  if (!loopOn || mode!=='lugar') return;
+  // fuente de imagen
+  if (CAM.demo){ const c=$('demo'); if (c.width!==270){ c.width=270; c.height=360; } renderDemo(c.getContext('2d'), 270, 360, CAM.demoYaw, CAM.demoPitch, CAM.demoRoll); }
+  const dx = (!S.hasGyro || CAM.demo) ? vtFrame(viewSource()) : 0;
+  if (CAM.demo){ const cp=Math.max(0.3,Math.cos(CAM.demoPitch*D2R)); const dd=pxToDeg(dx)/cp; CAP.yawU += dd; CAM.demoYawVis = wrap180((CAM.demoYawVis||0) + dd); }
+  if ((!S.hasGyro || CAM.demo) && !CAP.closed && VT.first && Math.abs(CAP.yawU) > 260 && Math.abs(CAP.pitch) < 15 && (CAP.fr=(CAP.fr||0)+1)%3===0) checkClosure();
+  const o = currentOrientation(dx);
+  CAP.yaw=o.yaw; CAP.pitch=o.pitch; CAP.roll=o.roll; CAP.src=o.src;
+  // quietud
+  const mv = Math.abs(wrap180(o.yaw-CAP.prevYaw)) + Math.abs(o.pitch-CAP.prevPitch);
+  CAP.prevYaw=o.yaw; CAP.prevPitch=o.pitch;
+  if (mv > 0.6) CAP.stillSince = t;
+  // objetivo más cercano no hecho
+  const done = coveredSet();
+  let best=null, bd=1e9;
+  for (const tg of targets){ if (done.has(tg.id)) continue; best=tg; bd=angDist(o.yaw,o.pitch,tg.yaw,tg.pitch); break; }
+  drawHud(o, best, bd, done);
+  $('count').textContent = `${point.shots.length}/${targets.length}`;
+  if (!best){ $('msg').textContent='¡Listo! Tocá el botón verde.'; }
+  else if (point.shots.length===0){ /* mensaje inicial */ if (t - CAP.stillSince > 900 && Math.abs(o.pitch) < 8) autoShot(best, o); }
+  else {
+    const dy = wrap180(best.yaw-o.yaw), dp = best.pitch-o.pitch;
+    if (bd < 3.5 && Math.abs(o.roll) < 8){ $('msg').textContent='Quieto…'; if (t - CAP.stillSince > 350) autoShot(best, o); }
+    else if (Math.abs(o.roll) >= 8 && bd < 6) $('msg').textContent='Enderezá el celular.';
+    else if (Math.abs(dp) > Math.abs(dy)) $('msg').textContent = dp>0 ? 'Apuntá más arriba, al punto naranja.' : 'Apuntá más abajo, al punto naranja.';
+    else $('msg').textContent = dy>0 ? 'Girá despacio a la derecha.' : 'Girá despacio a la izquierda.';
+  }
+  requestAnimationFrame(loopLugar);
+}
+function coveredSet(){
+  const out=new Set(); const lim = Math.max(14, FOV.h*0.36);
+  for (const tg of targets){ if (point.shots.some(s=> s.tid===tg.id || angDist(s.yaw,s.pitch,tg.yaw,tg.pitch) < lim)) out.add(tg.id); }
+  return out;
+}
+// cierre de la vuelta: cuando volvés a ver la primera foto, corrige la escala del giro medido con la imagen
+function checkClosure(){
+  const a=VT.prev, b=VT.first, W=VT.W, H=VT.H, M=72; if (!a||!b) return;
+  const sc=[]; let best=1e18, bs=0;
+  for (let s=-M;s<=M;s+=1){ let sum=0,n=0; const x0=Math.max(0,-s), x1=Math.min(W,W-s); if (x1-x0<40) { sc.push(1e9); continue; }
+    for (let j=20;j<H-20;j+=3){ const r=j*W; for (let i=x0;i<x1;i+=2){ sum+=Math.abs(a[r+i]-b[r+i+s]); n++; } }
+    const v=sum/n; sc.push(v); if (v<best){best=v;bs=s;} }
+  const valid=sc.filter(v=>v<1e9).sort((x,y)=>x-y); const med=valid[valid.length>>1];
+  if (!(best < med*0.45 && best < 14)) return;
+  const k = 360 / Math.abs(CAP.yawU - pxToDeg(bs));
+  if (k<0.85 || k>1.2) { CAP.kc=[]; return; }
+  // confirmar con 3 lecturas seguidas parecidas
+  CAP.kc = (CAP.kc||[]).concat(k).slice(-3);
+  if (CAP.kc.length<3 || Math.max(...CAP.kc)-Math.min(...CAP.kc) > 0.02) return;
+  CAP.closed = true;
+  FOV.h = 2*Math.atan(k*Math.tan(FOV.h*D2R/2))*R2D; FOV.v = 2*Math.atan(Math.tan(FOV.h*D2R/2)*(VT.H/VT.W))*R2D;
+  for (const s of point.shots) if (s.src!=='giro'){ s.yawU*=k; s.yaw = wrap180(s.yawU); }
+  CAP.yawU *= k; CAP.yaw = wrap180(CAP.yawU); if (CAM.demo) CAM.demoYawVis = CAP.yaw;
+  toast('Vuelta cerrada: ajusté la medida del giro.');
+}
+function angDist(y1,p1,y2,p2){
+  const a=basis(y1,p1,0).f, b=basis(y2,p2,0).f; return Math.acos(clamp(dot(a,b),-1,1))*R2D;
+}
+function drawHud(o, best, bd, done){
+  const c=$('hud'), g=c.getContext('2d'), W=c.width, H=c.height; g.clearRect(0,0,W,H);
+  const dpr=W/innerWidth;
+  // proyectar objetivos a la pantalla con el FOV de la cámara (la vista llena la pantalla)
+  const B=basis(o.yaw,o.pitch,o.roll);
+  const scr = innerWidth/innerHeight, camA = FOV.h/FOV.v; // aprox. de recorte "cover"
+  const tx=Math.tan(FOV.h*D2R/2)*(scr<camA? scr/camA : 1), ty=Math.tan(FOV.v*D2R/2)*(scr<camA? 1 : camA/scr);
+  function proj(yaw,pitch){ const d=basis(yaw,pitch,0).f; const z=dot(d,B.f); if (z<=0.05) return null; return [ (dot(d,B.r)/z/tx+1)/2*W, (1-dot(d,B.u)/z/ty)/2*H ]; }
+  // marco de las fotos hechas (contornos)
+  g.lineWidth=2*dpr;
+  for (const s of point.shots){ const p=proj(s.yaw,s.pitch); if (!p) continue; g.strokeStyle='#3ccf8e'; g.beginPath(); g.arc(p[0],p[1],14*dpr,0,7); g.stroke(); g.fillStyle='#3ccf8e'; g.beginPath(); g.arc(p[0],p[1],5*dpr,0,7); g.fill(); }
+  for (const tg of targets){ if (done.has(tg.id)) continue; const p=proj(tg.yaw,tg.pitch); if (!p) continue; const isB = best && tg.id===best.id; g.fillStyle= isB ? '#f2a516' : '#ffffff88'; g.beginPath(); g.arc(p[0],p[1],(isB?18:9)*dpr,0,7); g.fill(); }
+  // mira central
+  g.strokeStyle = bd<3.5 ? '#3ccf8e' : '#fff'; g.lineWidth=3*dpr; g.beginPath(); g.arc(W/2,H/2,26*dpr,0,7); g.stroke();
+  // flecha hacia el objetivo si está fuera de pantalla
+  const bp = best && proj(best.yaw,best.pitch); const off = best && (!bp || bp[0]<0 || bp[0]>W || bp[1]<0 || bp[1]>H);
+  if (off){ const dy=wrap180(best.yaw-o.yaw), dp=best.pitch-o.pitch; if (Math.abs(dp)>Math.abs(dy)){ g.fillStyle='#f2a516'; g.font=`700 ${44*dpr}px sans-serif`; g.textAlign='center'; g.fillText(dp>0?'↑':'↓', W/2, H/2 + (dp>0?-70:100)*dpr); } else { g.fillStyle='#f2a516'; g.font=`700 ${44*dpr}px sans-serif`; g.textAlign='center'; g.fillText(dy>0?'→':'←', W/2 + (dy>0?90:-90)*dpr, H/2+15*dpr); } }
+  // nivel (horizonte)
+  g.save(); g.translate(W/2,H/2); g.rotate(-o.roll*D2R); g.strokeStyle= Math.abs(o.roll)<8 ? '#3ccf8e88':'#ff6b4a'; g.lineWidth=2*dpr; g.beginPath(); g.moveTo(-70*dpr,0); g.lineTo(-34*dpr,0); g.moveTo(34*dpr,0); g.lineTo(70*dpr,0); g.stroke(); g.restore();
+  drawMini(o, done);
+}
+// mini esfera: cada objetivo como punto (verde = hecho)
+function drawMini(o, done){
+  const c=$('mini'), g=c.getContext('2d'), W=c.width, R=W/2-4; g.clearRect(0,0,W,W);
+  g.fillStyle='#0009'; g.beginPath(); g.arc(W/2,W/2,R,0,7); g.fill(); g.strokeStyle='#fff4'; g.lineWidth=1; g.beginPath(); g.arc(W/2,W/2,R,0,7); g.stroke();
+  // vista desde arriba "abierta": radio = (90 - pitch)
+  const P2 = (yaw,pitch) => { const rr=(90-pitch)/180*R; const a=(yaw-o.yaw-90)*D2R; return [W/2+rr*Math.cos(a), W/2+rr*Math.sin(a)]; };
+  for (const tg of targets){ const p=P2(tg.yaw,tg.pitch); g.fillStyle = done.has(tg.id) ? '#3ccf8e' : '#ffffff55'; g.beginPath(); g.arc(p[0],p[1],W*0.045,0,7); g.fill(); }
+  const me=P2(o.yaw,o.pitch); g.strokeStyle='#f2a516'; g.lineWidth=W*0.025; g.beginPath(); g.arc(me[0],me[1],W*0.06,0,7); g.stroke();
+}
+async function grabFrame(maxSide){
+  const src=viewSource();
+  const sw=src.videoWidth||src.width, sh=src.videoHeight||src.height;
+  // forzar retrato: si la cámara entrega apaisado, lo rotamos
+  const land = sw > sh && !CAM.demo;
+  const w0 = land ? sh : sw, h0 = land ? sw : sh;
+  const s = Math.min(1, maxSide/Math.max(w0,h0));
+  const c=document.createElement('canvas'); c.width=Math.round(w0*s); c.height=Math.round(h0*s);
+  const g=c.getContext('2d');
+  if (CAM.demo){ renderDemo(g, c.width, c.height, CAM.demoYaw, CAM.demoPitch, CAM.demoRoll); }
+  else if (land){ g.translate(c.width/2,c.height/2); g.rotate(Math.PI/2); g.drawImage(src, -c.height/2, -c.width/2, c.height, c.width); }
+  else g.drawImage(src,0,0,c.width,c.height);
+  return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+}
+async function autoShot(tg, o){
+  if (CAP.busy) return; CAP.busy=true;
+  try {
+    // en el primer disparo fijamos el origen del giro (antes de esperar nada)
+    if (point.shots.length===0){ VT.first = VT.prev ? VT.prev.slice() : null; CAP.yawU=0; CAP.closed=false; if (S.hasGyro && S.oriLast){ const oo=oriToCam(S.oriLast.a,S.oriLast.b,S.oriLast.g); S.yawGyro0=oo.yaw; } CAP.yaw=0; o={...o,yaw:0}; if (CAM.demo) CAM.demoYawVis=0; }
+    flash();
+    const blob = await grabFrame(1280);
+    const key = 'f_'+uid(); await saveBlob(key, blob);
+    point.shots.push({ key, tid:tg.id, yaw:o.yaw, yawU:CAP.yawU, ty: CAM.demo ? CAM.demoYaw : undefined, pitch:o.pitch, roll:o.roll, src:o.src });
+    if (navigator.vibrate) navigator.vibrate(40);
+    CAP.stillSince = performance.now()+500;
+  } finally { CAP.busy=false; }
+}
+function flash(){ const d=document.createElement('div'); d.style.cssText='position:fixed;inset:0;background:#fff;opacity:.6;z-index:30;pointer-events:none;transition:opacity .25s'; document.body.appendChild(d); requestAnimationFrame(()=>{ d.style.opacity='0'; }); setTimeout(()=>d.remove(),300); }
+
+/* ================== armado de la panorámica ================== */
+async function imgData(key, maxSide){
+  const b=await loadBlob(key); const bmp=await createImageBitmap(b);
+  const s=Math.min(1, maxSide/Math.max(bmp.width,bmp.height)); const c=document.createElement('canvas'); c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s);
+  const g=c.getContext('2d'); g.drawImage(bmp,0,0,c.width,c.height); bmp.close&&bmp.close();
+  return g.getImageData(0,0,c.width,c.height);
+}
+// proyecta una foto sobre la equirectangular acumulando color y peso
+function splat(acc, W, H, im, yaw, pitch, roll, fov, feather){
+  const B=basis(yaw,pitch,roll), tx=Math.tan(fov.h*D2R/2), ty=Math.tan(fov.v*D2R/2), iw=im.width, ih=im.height, d=im.data;
+  // caja aproximada en la equirectangular
+  const halfDiag = Math.atan(Math.hypot(tx,ty))*R2D + 2;
+  const latMin = Math.max(-90, pitch - halfDiag), latMax = Math.min(90, pitch + halfDiag);
+  const j0 = Math.max(0, Math.floor((90-latMax)/180*H)), j1 = Math.min(H-1, Math.ceil((90-latMin)/180*H));
+  const polar = latMax > 89 || latMin < -89;
+  const span = polar ? 180 : Math.min(180, halfDiag/Math.max(0.05, Math.cos(Math.max(Math.abs(latMin),Math.abs(latMax))*D2R)));
+  const i0 = Math.floor((yaw - span + 180)/360*W), i1 = Math.ceil((yaw + span + 180)/360*W);
+  for (let j=j0;j<=j1;j++){
+    const lat=(90-(j+0.5)/H*180)*D2R, cl=Math.cos(lat), sl=Math.sin(lat);
+    for (let ii=i0; ii<=i1; ii++){
+      const i=((ii%W)+W)%W; const lon=((i+0.5)/W*360-180)*D2R;
+      const x=Math.sin(lon)*cl, y=sl, z=Math.cos(lon)*cl;
+      const zc=x*B.f[0]+y*B.f[1]+z*B.f[2]; if (zc<=0.01) continue;
+      const px=(x*B.r[0]+y*B.r[1]+z*B.r[2])/zc/tx, py=(x*B.u[0]+y*B.u[1]+z*B.u[2])/zc/ty;
+      if (px<=-1||px>=1||py<=-1||py>=1) continue;
+      const fx=(px+1)/2*(iw-1), fy=(1-py)/2*(ih-1);
+      const x0=fx|0, y0=fy|0, ax=fx-x0, ay=fy-y0, x1=Math.min(iw-1,x0+1), y1=Math.min(ih-1,y0+1);
+      const k00=(y0*iw+x0)*4, k10=(y0*iw+x1)*4, k01=(y1*iw+x0)*4, k11=(y1*iw+x1)*4;
+      let w = feather ? Math.pow((1-Math.abs(px))*(1-Math.abs(py)), 1.5) + 1e-4 : 1;
+      const o=j*W+i;
+      for (let ch=0; ch<3; ch++){
+        const v=(d[k00+ch]*(1-ax)+d[k10+ch]*ax)*(1-ay)+(d[k01+ch]*(1-ax)+d[k11+ch]*ax)*ay;
+        acc[ch][o]+=v*w;
+      }
+      acc[3][o]+=w;
+    }
+  }
+}
+// error de encastre de una foto contra lo ya armado (baja resolución)
+function seamError(acc, W, H, gim, yaw, pitch, roll, fov){
+  const B=basis(yaw,pitch,roll), tx=Math.tan(fov.h*D2R/2), ty=Math.tan(fov.v*D2R/2), iw=gim.w, ih=gim.h, d=gim.g;
+  const halfDiag = Math.atan(Math.hypot(tx,ty))*R2D + 2;
+  const latMin = Math.max(-90, pitch - halfDiag), latMax = Math.min(90, pitch + halfDiag);
+  const j0 = Math.max(0, Math.floor((90-latMax)/180*H)), j1 = Math.min(H-1, Math.ceil((90-latMin)/180*H));
+  const polar = latMax > 89 || latMin < -89;
+  const span = polar ? 180 : Math.min(180, halfDiag/Math.max(0.05, Math.cos(Math.max(Math.abs(latMin),Math.abs(latMax))*D2R)));
+  const i0 = Math.floor((yaw - span + 180)/360*W), i1 = Math.ceil((yaw + span + 180)/360*W);
+  let n=0, sa=0, sb=0, saa=0, sbb=0, sab=0;
+  for (let j=j0;j<=j1;j++){
+    const lat=(90-(j+0.5)/H*180)*D2R, cl=Math.cos(lat), sl=Math.sin(lat);
+    for (let ii=i0; ii<=i1; ii++){
+      const i=((ii%W)+W)%W; const o=j*W+i; const w=acc[3][o]; if (w<=0) continue;
+      const lon=((i+0.5)/W*360-180)*D2R; const x=Math.sin(lon)*cl, y=sl, z=Math.cos(lon)*cl;
+      const zc=x*B.f[0]+y*B.f[1]+z*B.f[2]; if (zc<=0.01) continue;
+      const px=(x*B.r[0]+y*B.r[1]+z*B.r[2])/zc/tx, py=(x*B.u[0]+y*B.u[1]+z*B.u[2])/zc/ty;
+      if (px<=-1||px>=1||py<=-1||py>=1) continue;
+      const v=d[(((1-py)/2*(ih-1))|0)*iw + (((px+1)/2*(iw-1))|0)];
+      const ref=(acc[0][o]*0.3+acc[1][o]*0.59+acc[2][o]*0.11)/w;
+      n++; sa+=v; sb+=ref; saa+=v*v; sbb+=ref*ref; sab+=v*ref;
+    }
+  }
+  if (n<40) return null;
+  const va=saa/n-(sa/n)**2, vb=sbb/n-(sb/n)**2; if (va<4 || vb<4) return {z:0, n};
+  return {z:(sab/n-(sa/n)*(sb/n))/Math.sqrt(va*vb), n};
+}
+function toGray(im){ const g=new Float32Array(im.width*im.height); for (let i=0,k=0;i<g.length;i++,k+=4) g[i]=im.data[k]*0.3+im.data[k+1]*0.59+im.data[k+2]*0.11; return {g, w:im.width, h:im.height}; }
+function newAcc(W,H){ return [new Float32Array(W*H),new Float32Array(W*H),new Float32Array(W*H),new Float32Array(W*H)]; }
+
+// alinea todas las fotos en baja resolución; devuelve {poses, err}
+async function alignShots(smalls, shots, fov, yawScale, onStep){
+  const W=512, H=256, acc=newAcc(W,H), poses=[]; let errSum=0, errN=0;
+  // orden: primero la fila del horizonte en el orden de captura, después el resto
+  const order = shots.map((s,i)=>i).sort((a,b)=> (Math.abs(shots[a].pitch)>20) - (Math.abs(shots[b].pitch)>20) || a-b);
+  for (let k=0;k<order.length;k++){
+    const i=order[k], s=shots[i];
+    let yaw = s.src==='giro' ? s.yaw : s.yaw*yawScale, pitch=s.pitch, roll=s.roll;
+    if (k>0 && !s.fixed){
+      // fila del horizonte: búsqueda corta; filas de arriba/abajo: amplia (el giro medido con la imagen se corre más)
+      const wide = Math.abs(pitch) > 20;
+      const search = (yr, ys, pr, ps, y0, p0) => { const c=[]; let nMax=0;
+        for (let dy=-yr; dy<=yr+1e-9; dy+=ys) for (let dp=-pr; dp<=pr+1e-9; dp+=ps){
+          const e=seamError(acc,W,H,smalls[i].gray,y0+dy,p0+dp,roll,fov); if (e){ c.push([e,dy,dp]); if (e.n>nMax) nMax=e.n; } }
+        let best=null, by=0, bp=0;
+        for (const [e,dy,dp] of c){ if (e.n < nMax*0.5) continue; const sc=(1-e.z)*Math.sqrt(nMax/e.n); if (best==null || sc<best){best=sc;by=dy;bp=dp;} }
+        return {best, y:y0+by, p:p0+bp}; };
+      const polar = Math.abs(pitch) > 70;
+      let r1 = polar ? search(180,3,4,2,yaw,pitch) : wide ? search(10,0.5,3,0.75,yaw,pitch) : search(5,0.5,3,0.75,yaw,pitch);
+      if (r1.best!=null && (wide||polar)){ const r2=search(polar?2:0.5,0.25,polar?2:0.75,0.25,r1.y,r1.p); if (r2.best!=null) r1=r2; }
+      if (r1.best!=null){ yaw=r1.y; pitch=r1.p; errSum+=r1.best; errN++; }
+    }
+    poses[i]={yaw,pitch,roll};
+    splat(acc,W,H,smalls[i].rgb,yaw,pitch,roll,fov,true);
+    if (onStep) { onStep(k/order.length); await sleep(0); }
+  }
+  return {poses, err: errN ? errSum/errN : 0};
+}
+async function buildPano(pt, onProg){
+  const shots=pt.shots; if (!shots.length) return null;
+  onProg(0.02,'Preparando fotos…');
+  const smalls=[];
+  for (let i=0;i<shots.length;i++){ const im=await imgData(shots[i].key, 160); smalls.push({rgb:im, gray:toGray(im)}); onProg(0.02+0.18*i/shots.length,'Preparando fotos…'); await sleep(0); }
+  // el lente ya quedó calibrado al cerrar la vuelta durante la captura (checkClosure)
+  const fov = {h:FOV.h, v:FOV.v}, scale = 1, hzYaw = null;
+  onProg(0.46,'Encastrando fotos…');
+  const shots2 = shots.map((s,i)=> hzYaw && hzYaw[i]!=null ? {...s, yaw:hzYaw[i], src:'giro', fixed:true} : s);
+  const al = await alignShots(smalls, shots2, fov, scale, p=>onProg(0.46+0.2*p,'Encastrando fotos…'));
+  const bestF = fov;
+  // armado final
+  const W=2048, H=1024, acc=newAcc(W,H);
+  for (let i=0;i<shots.length;i++){
+    const im=await imgData(shots[i].key, 1280); const p=al.poses[i];
+    splat(acc,W,H,im,p.yaw,p.pitch,p.roll,bestF,true);
+    onProg(0.66+0.28*(i+1)/shots.length,'Uniendo en alta calidad…'); await sleep(0);
+  }
+  onProg(0.95,'Rellenando techo y piso…');
+  const out = fillAndCompose(acc,W,H);
+  const c=document.createElement('canvas'); c.width=W; c.height=H; c.getContext('2d').putImageData(out,0,0);
+  const blob = await new Promise(r=>c.toBlob(r,'image/jpeg',0.88));
+  pt.fov = {h:bestF.h, v:bestF.v}; pt.poses = al.poses;
+  return blob;
+}
+// rellena huecos (techo/piso sin foto): estira el borde de cada columna y lo difumina cada vez más
+function fillAndCompose(acc, W, H){
+  const N=W*H, r=new Float32Array(N), g=new Float32Array(N), b=new Float32Array(N), dist=new Float32Array(N);
+  const has=new Uint8Array(N);
+  for (let i=0;i<N;i++){ const a=acc[3][i]; if (a>0){ r[i]=acc[0][i]/a; g[i]=acc[1][i]/a; b[i]=acc[2][i]/a; has[i]=1; } }
+  // fila vacía completa: color gris neutro
+  for (let x=0;x<W;x++){
+    let t=-1, bt=-1; for (let y=0;y<H;y++) if (has[y*W+x]){ t=y; break; } for (let y=H-1;y>=0;y--) if (has[y*W+x]){ bt=y; break; }
+    if (t<0){ for (let y=0;y<H;y++){ const o=y*W+x; r[o]=g[o]=b[o]=110; dist[o]=H; } continue; }
+    const avg=(y0,y1)=>{ let R=0,G=0,B=0,n=0; for (let y=y0;y<=y1;y++){ const o=y*W+x; if (has[o]){R+=r[o];G+=g[o];B+=b[o];n++;} } return n?[R/n,G/n,B/n]:[110,110,110]; };
+    const top=avg(t, Math.min(H-1,t+6)), bot=avg(Math.max(0,bt-6), bt);
+    for (let y=0;y<t;y++){ const o=y*W+x; r[o]=top[0]; g[o]=top[1]; b[o]=top[2]; dist[o]=t-y; }
+    for (let y=bt+1;y<H;y++){ const o=y*W+x; r[o]=bot[0]; g[o]=bot[1]; b[o]=bot[2]; dist[o]=y-bt; }
+    for (let y=t;y<=bt;y++){ const o=y*W+x; if (has[o]) continue;
+      let y0=y; while (y0>t && !has[y0*W+x]) y0--; let y1=y; while (y1<bt && !has[y1*W+x]) y1++;
+      const a0=y0*W+x, a1=y1*W+x, f=(y-y0)/Math.max(1,y1-y0);
+      r[o]=r[a0]*(1-f)+r[a1]*f; g[o]=g[a0]*(1-f)+g[a1]*f; b[o]=b[a0]*(1-f)+b[a1]*f; dist[o]=Math.min(y-y0,y1-y); }
+  }
+  // difuminado horizontal por fila (con vuelta), más fuerte lejos del borde
+  const tmp=new Float32Array(W*3);
+  for (let y=0;y<H;y++){
+    let md=0; for (let x=0;x<W;x++) md=Math.max(md, dist[y*W+x]); if (md===0) continue;
+    const rad=Math.min(W>>2, Math.round(6+md*1.2));
+    for (let pass=0;pass<2;pass++){
+      let sr=0,sg=0,sb=0; for (let k=-rad;k<=rad;k++){ const o=y*W+((k%W)+W)%W; sr+=r[o]; sg+=g[o]; sb+=b[o]; }
+      const n=2*rad+1;
+      for (let x=0;x<W;x++){ tmp[x*3]=sr/n; tmp[x*3+1]=sg/n; tmp[x*3+2]=sb/n; const add=y*W+((x+rad+1)%W), sub=y*W+(((x-rad)%W)+W)%W; sr+=r[add]-r[sub]; sg+=g[add]-g[sub]; sb+=b[add]-b[sub]; }
+      for (let x=0;x<W;x++){ const o=y*W+x; if (dist[o]>0){ const t=Math.min(1, dist[o]/12); r[o]=r[o]*(1-t)+tmp[x*3]*t; g[o]=g[o]*(1-t)+tmp[x*3+1]*t; b[o]=b[o]*(1-t)+tmp[x*3+2]*t; } }
+    }
+  }
+  const img=new ImageData(W,H), d=img.data;
+  for (let i=0,k=0;i<N;i++,k+=4){ d[k]=r[i]; d[k+1]=g[i]; d[k+2]=b[i]; d[k+3]=255; }
+  return img;
+}
+async function finishPoint(){
+  loopOn=false; stopCamera();
+  if (!point.shots.length){ show('s-inicio'); return; }
+  show('s-armado'); $('arm-t').textContent='Armando la vista 360…';
+  const prog=(p,m)=>{ $('arm-bar').style.width=Math.round(p*100)+'%'; $('arm-m').textContent=m; };
+  try{
+    const blob = await buildPano(point, prog);
+    point.pano = 'p_'+uid(); await saveBlob(point.pano, blob);
+    P.puntos.push(point);
+    autoArrows();
+    await DB.put(P);
+    prog(1,'Listo');
+    openViewer(P, P.puntos.length-1);
+  } catch(e){ console.error(e); toast('No se pudo armar: ' + e.message, 5000); show('s-inicio'); }
+}
+// flechas entre puntos: hacia adelante donde miraba la primera foto; hacia atrás por GPS o al revés
+function bearing(a,b){ const f1=a.lat*D2R, f2=b.lat*D2R, dl=(b.lng-a.lng)*D2R; const y=Math.sin(dl)*Math.cos(f2), x=Math.cos(f1)*Math.sin(f2)-Math.sin(f1)*Math.cos(f2)*Math.cos(dl); return (Math.atan2(y,x)*R2D+360)%360; }
+function dist(a,b){ const R=6371000, dlat=(b.lat-a.lat)*D2R, dlng=(b.lng-a.lng)*D2R; const h=Math.sin(dlat/2)**2+Math.cos(a.lat*D2R)*Math.cos(b.lat*D2R)*Math.sin(dlng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function autoArrows(){
+  const n=P.puntos.length; if (n<2) return;
+  const a=P.puntos[n-2], b=P.puntos[n-1];
+  if (!a.flechas.some(f=>f.to===b.id)) a.flechas.push({to:b.id, yaw:0, pitch:-15, auto:true});
+  let back=180;
+  if (a.gps && b.gps && b.heading0!=null){ const d=dist(a.gps,b.gps); if (d > Math.max(a.gps.acc,b.gps.acc)) back = wrap180(bearing(b.gps,a.gps) - b.heading0); }
+  if (a.gps && b.gps && a.heading0!=null){ const d=dist(a.gps,b.gps); if (d > Math.max(a.gps.acc,b.gps.acc)){ const f=a.flechas.find(f=>f.to===b.id); f.yaw = wrap180(bearing(a.gps,b.gps) - a.heading0); } }
+  b.flechas.push({to:a.id, yaw:back, pitch:-15, auto:true});
+}
+
+/* ================== visor 360 ================== */
+const V = { renderer:null, scene:null, camera:null, mesh:null, lon:0, lat:0, fov:75, giro:false, proj:null, idx:0, place:null };
+function initViewer(){
+  if (V.renderer) return;
+  const el=$('view3d');
+  V.renderer = new THREE.WebGLRenderer({antialias:true}); V.renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  el.appendChild(V.renderer.domElement);
+  V.scene = new THREE.Scene(); V.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
+  const geo = new THREE.SphereGeometry(10, 64, 32); geo.scale(-1,1,1);
+  V.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color:0x222222})); V.scene.add(V.mesh);
+  let down=null, pinch=null;
+  el.addEventListener('pointerdown', e=>{ down={x:e.clientX,y:e.clientY,lon:V.lon,lat:V.lat,id:e.pointerId,moved:false}; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e=>{ if (!down||down.id!==e.pointerId||pinch) return; const k=V.fov/innerHeight; const dx=e.clientX-down.x, dy=e.clientY-down.y; if (Math.abs(dx)+Math.abs(dy)>6) down.moved=true; V.lon=down.lon - dx*k; V.lat=clamp(down.lat + dy*k,-85,85); });
+  el.addEventListener('pointerup', e=>{ if (down && !down.moved && V.place) placeArrow(e.clientX,e.clientY); down=null; });
+  el.addEventListener('wheel', e=>{ V.fov=clamp(V.fov+e.deltaY*0.05,35,100); e.preventDefault(); }, {passive:false});
+  el.addEventListener('touchstart', e=>{ if (e.touches.length===2){ pinch={d:Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY), fov:V.fov}; } }, {passive:true});
+  el.addEventListener('touchmove', e=>{ if (pinch && e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); V.fov=clamp(pinch.fov*pinch.d/d,35,100); } }, {passive:true});
+  el.addEventListener('touchend', e=>{ if (e.touches.length<2) pinch=null; });
+  addEventListener('resize', resizeViewer); resizeViewer();
+  requestAnimationFrame(renderViewer);
+}
+function resizeViewer(){ if (!V.renderer) return; V.renderer.setSize(innerWidth, innerHeight); V.camera.aspect=innerWidth/innerHeight; V.camera.updateProjectionMatrix(); }
+let giroRef=null;
+function renderViewer(){
+  requestAnimationFrame(renderViewer);
+  if ($('s-visor').hidden || !V.proj || V.proj.tipo!=='lugar') return;
+  if (V.giro && S.oriLast){ const o=oriToCam(S.oriLast.a,S.oriLast.b,S.oriLast.g); if (!giroRef) giroRef={yaw:o.yaw, lon:V.lon}; V.lon = giroRef.lon + wrap180(o.yaw-giroRef.yaw); V.lat=clamp(o.pitch,-85,85); }
+  else if (V.giro && S.grav){ const gr=gravToCam(S.grav.x,S.grav.y,S.grav.z); V.lat=clamp(gr.pitch,-85,85); }
+  V.camera.fov=V.fov; V.camera.updateProjectionMatrix();
+  // three: mirar en dirección (lon, lat); nuestra esfera invertida en X
+  const t=basis(V.lon, V.lat, 0).f; V.camera.lookAt(-t[2], t[1], -t[0]);
+  V.renderer.render(V.scene, V.camera);
+  placeChips();
+}
+function placeChips(){
+  const box=$('chips'); const pt=V.proj.puntos[V.idx]; if (!pt) return;
+  for (const f of pt.flechas){
+    let el=box.querySelector(`[data-to="${f.to}"]`);
+    if (!el){ el=document.createElement('button'); el.className='chip'; el.dataset.to=f.to; el.style.pointerEvents='auto'; const dest=V.proj.puntos.findIndex(p=>p.id===f.to); el.textContent='➜ Punto '+(dest+1); el.onclick=()=>gotoPoint(dest); box.appendChild(el); }
+    const d=basis(f.yaw,f.pitch,0).f; const v=new THREE.Vector3(-d[2],d[1],-d[0]).project(V.camera);
+    const vis = v.z<1 && Math.abs(v.x)<1.1 && Math.abs(v.y)<1.1;
+    el.hidden=!vis; if (vis){ el.style.left=((v.x+1)/2*innerWidth)+'px'; el.style.top=((1-v.y)/2*innerHeight)+'px'; }
+  }
+}
+async function openViewer(proj, idx){
+  V.proj=proj; V.idx=idx||0; $('chips').innerHTML='';
+  show('s-visor');
+  if (proj.tipo==='lugar'){
+    $('view3d').hidden=false; $('spin').hidden=true; initViewer(); resizeViewer();
+    const pt=proj.puntos[V.idx]; $('v-tit').textContent=`${proj.nombre} · Punto ${V.idx+1} de ${proj.puntos.length}`;
+    const blob=await loadBlob(pt.pano); const url=URL.createObjectURL(blob);
+    new THREE.TextureLoader().load(url, tex=>{ tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false; V.mesh.material.dispose(); V.mesh.material=new THREE.MeshBasicMaterial({map:tex}); });
+    V.lon=0; V.lat=0; $('b-sig').hidden=false; $('b-giro').hidden=false; $('b-sig').textContent='Otro punto';
+  } else openSpin(proj);
+}
+function gotoPoint(i){ if (i>=0) openViewer(V.proj, i); }
+function placeArrow(x,y){
+  const pt=V.proj.puntos[V.idx]; const f=pt.flechas.find(f=>f.to===V.place); if (!f){ V.place=null; return; }
+  const v=new THREE.Vector3((x/innerWidth)*2-1, -(y/innerHeight)*2+1, 0.5).unproject(V.camera).normalize();
+  f.yaw = Math.atan2(-v.z, -v.x)*R2D; f.pitch=Math.asin(clamp(v.y,-1,1))*R2D; f.auto=false;
+  V.place=null; DB.put(V.proj); toast('Flecha ubicada.');
+}
+
+/* ================== máquina: anillo ================== */
+const RING_N = 24;
+async function startMaquina(){
+  newProject('maquina'); mode='maquina'; CAP.ring=0;
+  await startSensors(); CAM.demo && buildDemoScene();
+  show('s-cam'); $('mini').hidden=false; $('b-shot').hidden=false;
+  if (!await startCamera()){ show('s-inicio'); return; }
+  sizeHud(); loopOn=true; updMaquinaMsg(); requestAnimationFrame(loopMaquina);
+}
+function updMaquinaMsg(){
+  const ring=P.anillos[CAP.ring]; const n=ring.length;
+  if (CAP.detalle){ $('msg').textContent=`Detalle: ${CAP.detalle}. Acercate y sacá la foto.`; $('count').textContent='📷'; return; }
+  $('count').textContent=`${n}/${RING_N}`;
+  $('msg').textContent = n===0 ? 'Parate frente a la máquina, que entre entera, y sacá la primera foto.' : n<RING_N ? 'Da 1 o 2 pasos a la derecha, siempre a la misma distancia, y encastrá la máquina con la foto anterior.' : 'Vuelta completa. Podés hacer una vuelta más alta o sacar detalles.';
+}
+function loopMaquina(){
+  if (!loopOn || mode!=='maquina') return;
+  if (CAM.demo){ const c=$('demo'); if (c.width!==270){ c.width=270; c.height=360; } renderDemo(c.getContext('2d'),270,360,CAM.demoYaw,CAM.demoPitch,0); }
+  const c=$('hud'), g=c.getContext('2d'), W=c.width, H=c.height, dpr=W/innerWidth; g.clearRect(0,0,W,H);
+  g.strokeStyle='#fff8'; g.lineWidth=2*dpr; g.setLineDash([10*dpr,8*dpr]); g.strokeRect(W*0.08,H*0.18,W*0.84,H*0.6); g.setLineDash([]);
+  g.beginPath(); g.moveTo(W/2-20*dpr,H/2); g.lineTo(W/2+20*dpr,H/2); g.moveTo(W/2,H/2-20*dpr); g.lineTo(W/2,H/2+20*dpr); g.stroke();
+  // anillo
+  const m=$('mini'), mg=m.getContext('2d'), MW=m.width, R=MW/2-10; mg.clearRect(0,0,MW,MW);
+  mg.fillStyle='#0009'; mg.beginPath(); mg.arc(MW/2,MW/2,MW/2-2,0,7); mg.fill();
+  mg.fillStyle='#f2a516'; mg.fillRect(MW/2-14,MW/2-9,28,18); // la máquina
+  const ring=P.anillos[CAP.ring];
+  for (let k=0;k<RING_N;k++){ const a=(k/RING_N)*Math.PI*2+Math.PI/2; mg.fillStyle = k<ring.length ? '#3ccf8e' : (k===ring.length ? '#f2a516' : '#ffffff40'); mg.beginPath(); mg.arc(MW/2+R*Math.cos(a), MW/2+R*Math.sin(a), MW*0.035, 0, 7); mg.fill(); }
+  requestAnimationFrame(loopMaquina);
+}
+async function shotMaquina(){
+  if (CAP.busy) return; CAP.busy=true;
+  try{
+    flash(); const blob=await grabFrame(1280); const key='m_'+uid(); await saveBlob(key, blob);
+    if (CAP.detalle){ P.detalles.push({key, nombre:CAP.detalle}); CAP.detalle=null; $('ghost').hidden=true; toast('Detalle guardado.'); }
+    else {
+      const ring=P.anillos[CAP.ring]; ring.push({key, heading: S.hasCompass ? compassHeading() : null});
+      const g=$('ghost'); if (g.src) URL.revokeObjectURL(g.src); g.src=URL.createObjectURL(blob); g.hidden=false;
+      if (ring.length===RING_N){ toast('¡Vuelta completa!'); openMaquinaMenu(); }
+    }
+    if (navigator.vibrate) navigator.vibrate(40);
+    await DB.put(P); updMaquinaMsg();
+  } finally { CAP.busy=false; }
+}
+function openMaquinaMenu(){
+  const sh=$('sheet'); sh.hidden=false;
+  const dets=['Motor','Horómetro y tablero','Placa / número de serie','Orugas o cubiertas','Cabina','Balde / implemento','Otro'];
+  sh.innerHTML = `<h2>¿Qué sigue?</h2>
+    <button id="mm-alta">Otra vuelta (más alta o más baja)</button>
+    <label class="small muted" for="mm-det">Foto de detalle</label>
+    <div class="row"><select id="mm-det">${dets.map(d=>`<option>${d}</option>`).join('')}</select><button id="mm-det-b">Sacar</button></div>
+    <button class="ok" id="mm-fin">Terminar y ver</button>
+    <button id="mm-seg">Seguir con esta vuelta</button>`;
+  $('mm-alta').onclick=()=>{ P.anillos.push([]); CAP.ring=P.anillos.length-1; $('ghost').hidden=true; sh.hidden=true; updMaquinaMsg(); };
+  $('mm-det-b').onclick=()=>{ CAP.detalle=$('mm-det').value; $('ghost').hidden=true; sh.hidden=true; updMaquinaMsg(); };
+  $('mm-fin').onclick=()=>{ sh.hidden=true; finishMaquina(); };
+  $('mm-seg').onclick=()=>{ sh.hidden=true; };
+}
+async function finishMaquina(){
+  loopOn=false; stopCamera(); P.anillos=P.anillos.filter(r=>r.length);
+  if (!P.anillos.length){ show('s-inicio'); return; }
+  await DB.put(P); openViewer(P,0);
+}
+// visor "girar la máquina"
+const SP = { frames:[], ring:0, i:0, zoom:1 };
+async function openSpin(proj){
+  $('view3d').hidden=true; $('spin').hidden=false; $('b-sig').hidden=true; $('b-giro').hidden=true;
+  $('v-tit').textContent = proj.nombre + ' · arrastrá para girar';
+  SP.frames = [];
+  for (const ring of proj.anillos){ const urls=[]; for (const s of ring){ urls.push(URL.createObjectURL(await loadBlob(s.key))); } SP.frames.push(urls); }
+  // precarga
+  SP.frames.flat().forEach(u=>{ const im=new Image(); im.src=u; });
+  SP.ring=0; SP.i=0; SP.zoom=1; drawSpin();
+  const box=$('chips'); box.innerHTML='';
+  proj.detalles.forEach((d,k)=>{ const b=document.createElement('button'); b.className='chip'; b.style.cssText+=`;pointer-events:auto;left:auto;right:${12}px;top:${110+k*54}px;transform:none`; b.textContent='🔍 '+d.nombre; b.onclick=async()=>{ const u=URL.createObjectURL(await loadBlob(d.key)); const sh=$('sheet'); sh.hidden=false; sh.innerHTML=`<h2>${esc(d.nombre)}</h2><img src="${u}" alt="${esc(d.nombre)}" style="border-radius:12px"><button id="det-x">Cerrar</button>`; $('det-x').onclick=()=>sh.hidden=true; }; box.appendChild(b); });
+}
+function drawSpin(){ const r=SP.frames[SP.ring]; if (!r||!r.length) return; $('spin-img').src=r[((SP.i%r.length)+r.length)%r.length]; $('spin-img').style.transform=`scale(${SP.zoom})`; }
+(function spinEvents(){
+  const el=$('spin'); let d=null;
+  el.addEventListener('pointerdown', e=>{ d={x:e.clientX,y:e.clientY,i:SP.i,ring:SP.ring}; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e=>{ if (!d) return; const step=Math.max(12, innerWidth/ (SP.frames[SP.ring]?.length||24) /1.2); SP.i = d.i - Math.round((e.clientX-d.x)/step); const dr=Math.round((d.y-e.clientY)/120); SP.ring=clamp(d.ring+dr,0,SP.frames.length-1); drawSpin(); });
+  el.addEventListener('pointerup', ()=>{ d=null; });
+  el.addEventListener('wheel', e=>{ SP.zoom=clamp(SP.zoom-e.deltaY*0.002,1,3); drawSpin(); e.preventDefault(); }, {passive:false});
+})();
+
+/* ================== lista de guardados ================== */
+async function refreshList(){
+  const all=(await DB.all()).sort((a,b)=>b.fecha-a.fecha);
+  const el=$('lista');
+  if (!all.length){ el.innerHTML='<span class="muted small">Todavía no hay nada.</span>'; return; }
+  el.innerHTML = all.map(p=>`<div class="item"><div><b>${esc(p.nombre)}</b><div class="small muted">${p.tipo==='lugar' ? (p.puntos.length+' punto(s)') : (p.anillos.reduce((a,r)=>a+r.length,0)+' fotos, '+p.detalles.length+' detalles')}</div></div><div class="row" style="flex:0 0 auto"><button data-ver="${p.id}">Ver</button><button data-del="${p.id}" aria-label="Borrar">✕</button></div></div>`).join('');
+  el.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{ const p=all.find(x=>x.id===b.dataset.ver); P=p; if ((p.tipo==='lugar'&&p.puntos.length)||(p.tipo==='maquina'&&p.anillos.length)) openViewer(p,0); });
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const sh=$('sheet'); sh.hidden=false; sh.innerHTML='<h2>¿Borrar este recorrido del celular?</h2><p class="muted">No se puede recuperar.</p><div class="row"><button id="del-no">Cancelar</button><button class="pri" id="del-si">Borrar</button></div>'; $('del-no').onclick=()=>sh.hidden=true; $('del-si').onclick=async()=>{ await DB.del(b.dataset.del); sh.hidden=true; refreshList(); }; });
+}
+
+/* ================== menú del visor ================== */
+function visorMenu(){
+  const sh=$('sheet'); sh.hidden=false; const p=V.proj;
+  if (p.tipo==='lugar'){
+    const pt=p.puntos[V.idx];
+    sh.innerHTML = `<h2>Opciones</h2>
+      <label class="small muted" for="vm-nom">Nombre del recorrido</label><input id="vm-nom" value="${esc(p.nombre)}">
+      ${pt.flechas.length ? `<div class="small muted">Acomodar flechas: elegí una y tocá en la vista dónde va.</div><div class="row">${pt.flechas.map(f=>{const i=p.puntos.findIndex(x=>x.id===f.to); return `<button data-fl="${f.to}">Flecha al punto ${i+1}</button>`;}).join('')}</div>` : ''}
+      <div id="map"></div>
+      <button id="vm-dl">Descargar panorámica (JPG)</button>
+      <button id="vm-ok" class="ok">Cerrar</button>`;
+    sh.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{ V.place=b.dataset.fl; sh.hidden=true; toast('Tocá en la vista dónde va la flecha.'); });
+    const pts=p.puntos.filter(x=>x.gps);
+    if (pts.length && window.L){ setTimeout(()=>{ const m=L.map('map',{attributionControl:true}); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(m); const ll=[]; p.puntos.forEach((x,i)=>{ if (!x.gps) return; ll.push([x.gps.lat,x.gps.lng]); L.marker([x.gps.lat,x.gps.lng]).addTo(m).bindPopup('Punto '+(i+1)+' (±'+Math.round(x.gps.acc)+' m)').on('click',()=>{ sh.hidden=true; gotoPoint(i); }); }); if (ll.length>1) L.polyline(ll,{color:'#f2a516'}).addTo(m); m.fitBounds(L.latLngBounds(ll).pad(0.4), {maxZoom:19}); }, 50); }
+    else $('map').outerHTML='<p class="small muted">Sin GPS en estos puntos: no hay mapa.</p>';
+    $('vm-dl').onclick=async()=>{ const b=await loadBlob(pt.pano); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`inmex-punto-${V.idx+1}.jpg`; document.body.appendChild(a); a.click(); a.remove(); };
+  } else {
+    sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">Las mismas fotos sirven después para armar el modelo 3D real en la computadora.</p><button id="vm-ok" class="ok">Cerrar</button>`;
+  }
+  $('vm-ok').onclick=()=>{ p.nombre=$('vm-nom').value.trim()||p.nombre; DB.put(p); sh.hidden=true; $('v-tit').textContent=p.nombre; };
+}
+
+/* ================== modo de ejemplo (sin celular) ================== */
+(function demoControls(){
+  const el=$('cam'); let d=null;
+  el.addEventListener('pointerdown', e=>{ if (!CAM.demo || e.target.closest('button')) return; d={x:e.clientX,y:e.clientY,yaw:CAM.demoYaw,pitch:CAM.demoPitch}; });
+  addEventListener('pointermove', e=>{ if (!d) return; CAM.demoYaw=wrap180(d.yaw-(e.clientX-d.x)*0.15); CAM.demoPitch=clamp(d.pitch+(e.clientY-d.y)*0.15,-89,89); });
+  addEventListener('pointerup', ()=>{ d=null; });
+  addEventListener('keydown', e=>{ if (!CAM.demo) return; if (e.key==='ArrowLeft') CAM.demoYaw=wrap180(CAM.demoYaw-3); if (e.key==='ArrowRight') CAM.demoYaw=wrap180(CAM.demoYaw+3); if (e.key==='ArrowUp') CAM.demoPitch=clamp(CAM.demoPitch+3,-89,89); if (e.key==='ArrowDown') CAM.demoPitch=clamp(CAM.demoPitch-3,-89,89); });
+})();
+
+/* ================== botones ================== */
+$('b-lugar-rapido').onclick=()=>{ CAM.demo=false; P=null; startLugar(false); };
+$('b-lugar-completo').onclick=()=>{ CAM.demo=false; P=null; startLugar(true); };
+$('b-maquina').onclick=()=>{ CAM.demo=false; startMaquina(); };
+$('a-demo').onclick=e=>{ e.preventDefault(); CAM.demo=true; P=null; startLugar(false); };
+$('b-sens').onclick=checkSensors;
+$('b-cancelar').onclick=()=>{ if (mode==='lugar' && point && point.shots.length){ finishPoint(); return; } loopOn=false; stopCamera(); show('s-inicio'); refreshList(); };
+$('b-listo').onclick=()=>{ if (mode==='lugar') finishPoint(); else openMaquinaMenu(); };
+$('b-shot').onclick=()=>{
+  if (mode==='maquina') return shotMaquina();
+  // en lugar: disparo manual al objetivo más cercano
+  const done=coveredSet(); let best=null,bd=1e9; for (const tg of targets){ if (done.has(tg.id)) continue; const d=angDist(CAP.yaw,CAP.pitch,tg.yaw,tg.pitch); if (d<bd){bd=d;best=tg;} }
+  if (best) autoShot(best, {yaw:CAP.yaw,pitch:CAP.pitch,roll:CAP.roll,src:CAP.src});
+};
+$('b-vsalir').onclick=()=>{ show('s-inicio'); refreshList(); };
+$('b-giro').onclick=async()=>{ await startSensors(); V.giro=!V.giro; giroRef=null; $('b-giro').textContent = V.giro ? 'Usar dedo' : 'Usar giro'; };
+$('b-sig').onclick=()=>{ P=V.proj; startLugar(P.full); };
+$('b-vmenu').onclick=visorMenu;
+refreshList();
+// para pruebas automáticas
+window.__inmex = { covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+</script>
+</body>
+</html>
