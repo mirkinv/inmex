@@ -17,6 +17,11 @@ Versión publicada: 0.3.0 (25/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - `ver3d.html`: visor de modelos Gaussian splat (.ply/.spz/.splat) con Spark 2.4 + three 0.180 en `vendor/` (sin CDN). Abre archivo del teléfono o `?m=modelo&c=ajustes.json`. Puntos = vista guardada + nombre (se marcan con el círculo del centro), carteles sobre el modelo, dar vueltas solo, WhatsApp, precio, dar vuelta/girar el modelo, descargar ajustes. Ejemplo dibujado en `ejemplo/`.
 - Probado con Playwright (Pixel 5 simulado, swiftshader): carga, puntos, X y Cancelar, botones ≥ 44 px, ZIP válido.
 
+## Calibración (25/11, después del video de la cocina)
+- Prueba de esfera completa con el moto g05: 5 de 21 fotos en 2:20, se traba al apuntar al techo liso; resultado con huecos y uniones. Causa: el moto g05 no tiene giróscopo, brújula ni magnetómetro (solo acelerómetro); el seguimiento por imagen falla en superficies lisas.
+- Decisiones de Victor: rehacer la captura y comprar cámara 360 con el primer cliente que pague; INMEX sirve para todo (CP770, campo, casas, servicio); los clientes también van a sacar fotos con su celular (tiene que andar en cualquiera, sin giróscopo); para mostrar: "profesional o nada".
+- Rumbo: dejar de perseguir puntos en pantalla. Captura por video de vuelta (2–3 vueltas lentas a distintas alturas) y armado de la panorámica fuera de la captura (más cuadros, mejor encastre), techo y piso tapados con el logo. Primero probar la calidad con un video real de Victor antes de programarlo.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
