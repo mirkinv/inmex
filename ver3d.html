@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Inmex 3D</title>
+<meta name="theme-color" content="#0b1120">
+<style>
+:root{--bg:#0b1120;--pan:#141c2e;--fg:#f3f5f9;--mute:#9aa4b8;--acc:#f2a516;--ok:#3ccf8e;--wa:#25d366}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;touch-action:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+button,.btn{min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #ffffff22;background:var(--pan);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+button.pri{background:var(--acc);color:#111;border-color:var(--acc)}
+button.wa{background:var(--wa);color:#05210f;border-color:var(--wa)}
+#top{position:fixed;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:10px;background:linear-gradient(#0b1120ee,#0b112000);z-index:5}
+#tit{flex:1;font-weight:700;line-height:1.2}
+#tit small{display:block;color:var(--mute);font-weight:400}
+#bot{position:fixed;left:0;right:0;bottom:0;padding:10px;display:flex;gap:8px;overflow-x:auto;background:linear-gradient(#0b112000,#0b1120ee);z-index:5}
+#bot button{flex:0 0 auto}
+.pin{position:fixed;z-index:4;transform:translate(-50%,-100%);background:var(--acc);color:#111;border:0;border-radius:20px;padding:6px 12px;min-height:36px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px #0008}
+.pin::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-top-color:var(--acc);border-bottom:0}
+#cruz{position:fixed;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border:2px solid var(--acc);border-radius:50%;z-index:4;pointer-events:none}
+#cruz::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;background:var(--acc);border-radius:50%}
+#vacio{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;z-index:3}
+#vacio p{color:var(--mute);max-width:420px;margin:0}
+#cargando{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--pan);padding:14px 18px;border-radius:12px;z-index:6}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:85vh;overflow:auto;background:var(--pan);border-radius:16px 16px 0 0;padding:16px;z-index:10;display:flex;flex-direction:column;gap:10px;box-shadow:0 -6px 24px #0009}
+.sheet h2{margin:0 48px 4px 0;font-size:18px}
+.sheet .x{position:absolute;right:10px;top:10px;width:44px;padding:0}
+.sheet input{min-height:44px;border-radius:10px;border:1px solid #ffffff33;background:#0b1120;color:var(--fg);padding:8px 10px;font:inherit;width:100%}
+.sheet label{color:var(--mute);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+.item{display:flex;gap:8px;align-items:center}.item span{flex:1}
+.muted{color:var(--mute)}.small{font-size:13px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#000d;padding:10px 16px;border-radius:10px;z-index:20}
+[hidden]{display:none!important}
+</style>
+<script type="importmap">
+{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/","@sparkjsdev/spark":"./vendor/spark.module.js"}}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top">
+  <div id="tit">Inmex 3D<small>arrastrá para girar · pellizcá para acercar</small></div>
+  <button id="b-menu" aria-label="Opciones">Opciones</button>
+</div>
+<div id="vacio">
+  <h2 style="margin:0">Ver una máquina en 3D</h2>
+  <p>Abrí el archivo del modelo (.ply, .spz o .splat) que sale de procesar las fotos de la vuelta.</p>
+  <button class="pri" id="b-abrir">Abrir modelo</button>
+  <a class="btn" href="?m=ejemplo/camioneta.ply&c=ejemplo/ajustes.json" style="text-decoration:none">Ver un ejemplo</a>
+  <p class="small">El ejemplo es una camioneta dibujada a mano para probar los botones, no un escaneo real.</p>
+  <a class="small muted" href="./">Volver a Inmex</a>
+</div>
+<div id="cargando" hidden>Cargando el modelo…</div>
+<div id="cruz" hidden></div>
+<div id="pins"></div>
+<div id="bot" hidden></div>
+<input type="file" id="file" accept=".ply,.spz,.splat,.ksplat,.sog" hidden>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t, ms=2600){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(), ms); }
+
+/* ---------- escena ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b1120);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 2000);
+const spark = new SparkRenderer({ renderer }); scene.add(spark);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.autoRotateSpeed = 1.2;
+function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+/* ---------- estado ---------- */
+// cfg: lo que se publica junto al modelo (nombre, giro, puntos, WhatsApp)
+const params = new URLSearchParams(location.search);
+let cfg = { nombre: 'Máquina', precio: '', whatsapp: '', rot: [0,0,0], puntos: [] };
+let modelo = null, clave = null, vuelo = null;
+const guardar = () => { if (!clave) return; try { localStorage.setItem('inmex3d:'+clave, JSON.stringify(cfg)); } catch(e){} };
+
+async function cargar({ url, bytes, nombreArchivo }){
+  $('vacio').hidden = true; $('cargando').hidden = false;
+  try {
+    if (modelo){ scene.remove(modelo); modelo.dispose?.(); }
+    modelo = bytes ? new SplatMesh({ fileBytes: bytes, fileName: nombreArchivo }) : new SplatMesh({ url });
+    scene.add(modelo);
+    await modelo.initialized;
+    clave = nombreArchivo || url;
+    try { const g = JSON.parse(localStorage.getItem('inmex3d:'+clave) || 'null'); if (g && !params.get('c')) cfg = Object.assign(cfg, g); } catch(e){}
+    aplicarGiro(); encuadrar(); armarBarra(); actualizarTitulo();
+    $('cargando').hidden = true; $('bot').hidden = false;
+  } catch (e) {
+    console.error(e); $('cargando').hidden = true; $('vacio').hidden = false;
+    toast('No se pudo abrir ese archivo. Tiene que ser .ply, .spz o .splat.', 4000);
+  }
+}
+function aplicarGiro(){ if (modelo) modelo.rotation.set(...cfg.rot.map(g => g*Math.PI/180)); modelo?.updateMatrixWorld(true); }
+function caja(){
+  const b = modelo.getBoundingBox(true).clone(); b.applyMatrix4(modelo.matrixWorld); return b;
+}
+function encuadrar(){
+  const b = caja(), c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z) || 1;
+  controls.target.copy(c);
+  camera.position.copy(c).add(new THREE.Vector3(r*1.1, r*0.55, r*1.4));
+  camera.near = r/500; camera.far = r*50; camera.updateProjectionMatrix();
+  controls.minDistance = r*0.05; controls.maxDistance = r*4; controls.update();
+}
+function actualizarTitulo(){ $('tit').innerHTML = `${esc(cfg.nombre)}${cfg.precio ? ' · '+esc(cfg.precio) : ''}<small>arrastrá para girar · pellizcá para acercar</small>`; document.title = cfg.nombre + ' · Inmex 3D'; }
+
+/* ---------- puntos (vista guardada + nombre) ---------- */
+function irA(p){
+  vuelo = { t0: performance.now(), dur: 900,
+    p0: camera.position.clone(), p1: new THREE.Vector3(...p.cam),
+    t0v: controls.target.clone(), t1: new THREE.Vector3(...p.mira) };
+  controls.autoRotate = false;
+}
+function armarBarra(){
+  const bot = $('bot');
+  bot.innerHTML = cfg.puntos.map((p,i) => `<button data-p="${i}">🔍 ${esc(p.nombre)}</button>`).join('')
+    + `<button id="b-vuelta">${controls.autoRotate ? '⏸ Parar' : '↻ Dar vueltas'}</button>`
+    + (cfg.whatsapp ? `<button class="wa" id="b-wa">WhatsApp</button>` : '');
+  bot.querySelectorAll('[data-p]').forEach(b => b.onclick = () => irA(cfg.puntos[+b.dataset.p]));
+  $('b-vuelta').onclick = () => { controls.autoRotate = !controls.autoRotate; armarBarra(); };
+  if ($('b-wa')) $('b-wa').onclick = () => {
+    const txt = `Hola, vi ${cfg.nombre} en 3D y quiero más información.`;
+    open(`https://wa.me/${cfg.whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(txt)}`, '_blank');
+  };
+  // marcadores sobre el modelo
+  $('pins').innerHTML = cfg.puntos.map((p,i) => `<button class="pin" data-pin="${i}">${esc(p.nombre)}</button>`).join('');
+  $('pins').querySelectorAll('[data-pin]').forEach(b => b.onclick = () => irA(cfg.puntos[+b.dataset.pin]));
+}
+function ubicarPins(){
+  const v = new THREE.Vector3();
+  $('pins').querySelectorAll('[data-pin]').forEach(el => {
+    const p = cfg.puntos[+el.dataset.pin]; v.set(...p.mira).project(camera);
+    const vis = v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1;
+    el.hidden = !vis; if (vis){ el.style.left = ((v.x+1)/2*innerWidth)+'px'; el.style.top = ((1-v.y)/2*innerHeight)+'px'; }
+  });
+}
+
+/* ---------- hojas ---------- */
+function hoja(html){
+  cerrarHoja();
+  const sh = document.createElement('div'); sh.className = 'sheet'; sh.id = 'sheet';
+  sh.innerHTML = `<button class="x" aria-label="Cerrar">✕</button>${html}`;
+  document.body.appendChild(sh);
+  sh.querySelector('.x').onclick = cerrarHoja;
+  sh.querySelectorAll('[data-cancelar]').forEach(b => b.onclick = cerrarHoja);
+  return sh;
+}
+function cerrarHoja(){ $('sheet')?.remove(); $('cruz').hidden = true; }
+
+function menu(){
+  if (!modelo){ $('file').click(); return; }
+  const sh = hoja(`<h2>Opciones</h2>
+    <button class="pri" id="m-punto">➕ Marcar un punto (motor, cabina…)</button>
+    ${cfg.puntos.length ? `<div class="small muted">Puntos marcados</div>${cfg.puntos.map((p,i)=>`<div class="item"><span>${esc(p.nombre)}</span><button data-borrar="${i}" aria-label="Quitar ${esc(p.nombre)}">✕</button></div>`).join('')}` : ''}
+    <label for="m-nom">Nombre</label><input id="m-nom" value="${esc(cfg.nombre)}">
+    <label for="m-pre">Precio (opcional)</label><input id="m-pre" value="${esc(cfg.precio)}" placeholder="USD 600.000">
+    <label for="m-wa">WhatsApp para consultas</label><input id="m-wa" inputmode="tel" value="${esc(cfg.whatsapp)}" placeholder="5493812124255">
+    <div class="small muted">¿Se ve dado vuelta o de costado?</div>
+    <div class="row"><button id="m-dv">Dar vuelta</button><button id="m-90">Girar de costado</button><button id="m-enc">Centrar</button></div>
+    <div class="row"><button id="m-otro">Abrir otro modelo</button><button id="m-dl">Descargar ajustes</button></div>
+    <div class="row"><button data-cancelar>Cancelar</button><button class="pri" id="m-ok">Guardar</button></div>`);
+  sh.querySelectorAll('[data-borrar]').forEach(b => b.onclick = () => { cfg.puntos.splice(+b.dataset.borrar,1); guardar(); armarBarra(); menu(); });
+  $('m-punto').onclick = marcarPunto;
+  $('m-dv').onclick = () => { cfg.rot[0] = (cfg.rot[0]+180)%360; aplicarGiro(); encuadrar(); guardar(); };
+  $('m-90').onclick = () => { cfg.rot[2] = (cfg.rot[2]+90)%360; aplicarGiro(); encuadrar(); guardar(); };
+  $('m-enc').onclick = encuadrar;
+  $('m-otro').onclick = () => { cerrarHoja(); $('file').click(); };
+  $('m-dl').onclick = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(cfg,null,1)],{type:'application/json'})); a.download='ajustes-3d.json'; a.click(); };
+  $('m-ok').onclick = () => { cfg.nombre=$('m-nom').value.trim()||'Máquina'; cfg.precio=$('m-pre').value.trim(); cfg.whatsapp=$('m-wa').value.replace(/\D/g,''); guardar(); armarBarra(); actualizarTitulo(); cerrarHoja(); toast('Guardado.'); };
+}
+function marcarPunto(){
+  // el punto queda donde está el centro de la pantalla: se guarda la vista actual
+  controls.autoRotate = false; armarBarra();
+  const sh = hoja(`<h2>Marcar un punto</h2>
+    <p class="small muted" style="margin:0">Girá y acercá hasta que la parte quede en el círculo del medio. Después poné el nombre.</p>
+    <label for="p-nom">Nombre</label><input id="p-nom" placeholder="Motor, cabina, cosechadores…" list="p-sug">
+    <datalist id="p-sug"><option>Motor</option><option>Cabina</option><option>Tablero y horómetro</option><option>Cosechadores</option><option>Canasto</option><option>Cubiertas</option><option>Placa / número de serie</option></datalist>
+    <div class="row"><button data-cancelar>Cancelar</button><button class="pri" id="p-ok">Guardar punto</button></div>`);
+  sh.style.maxHeight = '45vh'; $('cruz').hidden = false;
+  $('p-ok').onclick = () => {
+    let nom = $('p-nom').value.trim(); if (!nom){ toast('Poné un nombre.'); return; }
+    const iguales = cfg.puntos.filter(p => p.nombre === nom || p.nombre.startsWith(nom+' ')).length;
+    if (iguales) nom += ' ' + (iguales+1);
+    // la mira es el punto del modelo en el centro: la distancia al objetivo de giro
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    const d = camera.position.distanceTo(controls.target);
+    const mira = camera.position.clone().add(dir.multiplyScalar(d));
+    cfg.puntos.push({ nombre: nom, cam: camera.position.toArray(), mira: mira.toArray() });
+    controls.target.copy(mira); guardar(); armarBarra(); cerrarHoja(); toast('Punto guardado: ' + nom);
+  };
+}
+
+/* ---------- eventos ---------- */
+$('b-abrir').onclick = () => $('file').click();
+$('b-menu').onclick = menu;
+$('file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 300*1024*1024){ toast('El archivo es muy grande para el celular.', 4000); return; }
+  await cargar({ bytes: new Uint8Array(await f.arrayBuffer()), nombreArchivo: f.name });
+  e.target.value = '';
+};
+
+/* ---------- arranque: ?m=modelo&c=ajustes.json ---------- */
+(async () => {
+  const c = params.get('c');
+  if (c){ try { cfg = Object.assign(cfg, await (await fetch(c)).json()); } catch(e){ console.warn('ajustes', e); } }
+  const m = params.get('m');
+  if (m) await cargar({ url: m });
+})();
+
+renderer.setAnimationLoop(t => {
+  if (vuelo){
+    const k = Math.min(1, (t - vuelo.t0) / vuelo.dur), e = k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+    camera.position.lerpVectors(vuelo.p0, vuelo.p1, e); controls.target.lerpVectors(vuelo.t0v, vuelo.t1, e);
+    if (k >= 1) vuelo = null;
+  }
+  controls.update(); renderer.render(scene, camera); ubicarPins();
+});
+window.__inmex3d = { get cfg(){ return cfg; }, get modelo(){ return modelo; }, camera, controls, cargar, irA };
+</script>
+</body>
+</html>
