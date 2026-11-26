@@ -22,6 +22,12 @@ Versión publicada: 0.3.0 (25/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - Decisiones de Victor: rehacer la captura y comprar cámara 360 con el primer cliente que pague; INMEX sirve para todo (CP770, campo, casas, servicio); los clientes también van a sacar fotos con su celular (tiene que andar en cualquiera, sin giróscopo); para mostrar: "profesional o nada".
 - Rumbo: dejar de perseguir puntos en pantalla. Captura por video de vuelta (2–3 vueltas lentas a distintas alturas) y armado de la panorámica fuera de la captura (más cuadros, mejor encastre), techo y piso tapados con el logo. Primero probar la calidad con un video real de Victor antes de programarlo.
 
+## Prueba con videos reales (26/11)
+- Spyne probado por Victor en el moto g05: guía con silueta por ángulo, detección del vehículo, video de vuelta obligatorio, cola de subida… y todo terminó "Failed to process". Tomamos la guía, no el resultado.
+- Vista 360 desde un video de una vuelta (`herramientas/cyl2.py` estima la distancia focal con la vuelta completa, `cylh.py` arma el cilindro con franjas centrales y peso por nitidez, `equi.py` lo pasa a 2:1). Una vuelta vertical cubre ±27°: `ver360.html` limita la inclinación (`v=12`) para que se vea solo lo real. Ejemplo `ejemplo/calle360.jpg`.
+- Giro de la camioneta desde un video caminando alrededor (`det.py` detecta el vehículo con YOLO11n-seg ONNX, `spin2.py` elige 36 cuadros nítidos y los centra). Visor `giro.html` (arrastrar, girar sola, WhatsApp). Ejemplo `ejemplo/camioneta-giro/`.
+- Lecciones de captura: para el 360, 3 vueltas (derecha, inclinada arriba, inclinada abajo) y girar sobre los pies sin caminar; para el giro, celular horizontal, 4–5 m de distancia con la máquina entera en cuadro y paso parejo.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 

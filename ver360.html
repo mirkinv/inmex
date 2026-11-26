@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Inmex · vista 360</title><meta name="theme-color" content="#0b1120">
+<style>
+html,body{margin:0;height:100%;background:#0b1120;color:#f3f5f9;font:15px/1.4 system-ui,sans-serif;overflow:hidden;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+#top{position:fixed;left:0;right:0;top:0;padding:10px 12px;background:linear-gradient(#0b1120ee,#0b112000);font-weight:700;z-index:2}
+#top small{display:block;color:#9aa4b8;font-weight:400}
+#prog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#141c2e;padding:12px 16px;border-radius:10px;z-index:2}
+#bar{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:8px;z-index:2}
+#bar button{min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #ffffff22;background:#141c2e;color:#f3f5f9;font:inherit;font-weight:600}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head><body>
+<canvas id="c"></canvas>
+<div id="top"><span id="tit">Vista 360 de prueba</span><small>Arrastrá para mirar alrededor</small></div>
+<div id="prog">Cargando…</div>
+<div id="bar"><button id="auto">↻ Girar sola</button></div>
+<script type="module">
+import * as THREE from 'three';
+// ?p=imagen&t=titulo&v=grados de inclinación permitidos (por defecto 12: solo la franja horizontal)
+const q=new URLSearchParams(location.search);
+const src=q.get('p')||'ejemplo/calle360.jpg', lim=THREE.MathUtils.degToRad(+(q.get('v')||12));
+document.getElementById('tit').textContent=q.get('t')||'Vista 360 de prueba';
+const r=new THREE.WebGLRenderer({canvas:document.getElementById('c')}); r.setPixelRatio(Math.min(devicePixelRatio,2));
+const sc=new THREE.Scene(), cam=new THREE.PerspectiveCamera(50,1,.1,100);
+function rs(){r.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.fov=innerWidth<innerHeight?62:50;cam.updateProjectionMatrix();}
+addEventListener('resize',rs); rs();
+new THREE.TextureLoader().load(src,t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(10,96,64),new THREE.MeshBasicMaterial({map:t,side:THREE.BackSide}));
+  m.scale.x=-1; sc.add(m); document.getElementById('prog').remove();});
+let lon=0,lat=0,x0,y0,l0,a0,drag=false,auto=true;
+addEventListener('pointerdown',e=>{if(e.target.closest('#bar'))return;drag=true;auto=false;x0=e.clientX;y0=e.clientY;l0=lon;a0=lat;btn();});
+addEventListener('pointermove',e=>{if(!drag)return;const k=cam.fov/innerHeight*Math.PI/180;lon=l0-(e.clientX-x0)*k;lat=Math.max(-lim,Math.min(lim,a0+(e.clientY-y0)*k));});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('wheel',e=>{cam.fov=Math.max(30,Math.min(75,cam.fov+e.deltaY*.03));cam.updateProjectionMatrix();});
+const b=document.getElementById('auto'); function btn(){b.textContent=auto?'⏸ Parar':'↻ Girar sola';} btn();
+b.onclick=()=>{auto=!auto;btn();};
+r.setAnimationLoop(()=>{if(auto)lon+=.0015;cam.lookAt(Math.cos(lat)*Math.sin(lon),Math.sin(lat),-Math.cos(lat)*Math.cos(lon));r.render(sc,cam);});
+</script></body></html>
