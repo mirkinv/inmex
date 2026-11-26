@@ -48,7 +48,7 @@ button.wa{background:var(--wa);color:#05210f;border-color:var(--wa)}
 </div>
 <div id="vacio">
   <h2 style="margin:0">Ver una máquina en 3D</h2>
-  <p>Abrí el archivo del modelo (.ply, .spz o .splat) que sale de procesar las fotos de la vuelta.</p>
+  <p>Abrí el archivo del modelo (.glb de KIRI o Polycam, o .ply / .spz / .splat) que sale de procesar las fotos de la vuelta.</p>
   <button class="pri" id="b-abrir">Abrir modelo</button>
   <a class="btn" href="?m=ejemplo/camioneta.ply&c=ejemplo/ajustes.json" style="text-decoration:none">Ver un ejemplo</a>
   <p class="small">El ejemplo es una camioneta dibujada a mano para probar los botones, no un escaneo real.</p>
@@ -58,12 +58,13 @@ button.wa{background:var(--wa);color:#05210f;border-color:var(--wa)}
 <div id="cruz" hidden></div>
 <div id="pins"></div>
 <div id="bot" hidden></div>
-<input type="file" id="file" accept=".ply,.spz,.splat,.ksplat,.sog" hidden>
+<input type="file" id="file" accept=".ply,.spz,.splat,.ksplat,.sog,.glb" hidden>
 
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -75,6 +76,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b1120);
 const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 2000);
 const spark = new SparkRenderer({ renderer }); scene.add(spark);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
+const sol = new THREE.DirectionalLight(0xffffff, 1.2); sol.position.set(3,5,2); scene.add(sol);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08; controls.autoRotateSpeed = 1.2;
 function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); }
@@ -91,9 +94,18 @@ async function cargar({ url, bytes, nombreArchivo }){
   $('vacio').hidden = true; $('cargando').hidden = false;
   try {
     if (modelo){ scene.remove(modelo); modelo.dispose?.(); }
-    modelo = bytes ? new SplatMesh({ fileBytes: bytes, fileName: nombreArchivo }) : new SplatMesh({ url });
-    scene.add(modelo);
-    await modelo.initialized;
+    const nom = (nombreArchivo || url || '').toLowerCase().split('?')[0];
+    if (nom.endsWith('.glb') || nom.endsWith('.gltf')){
+      // malla con textura (KIRI, Polycam): se envuelve en un grupo para poder girarla y medirla
+      const gl = new GLTFLoader();
+      const g = bytes ? await gl.parseAsync(bytes.buffer, '') : await gl.loadAsync(url);
+      modelo = new THREE.Group(); modelo.add(g.scene); modelo.esMalla = true;
+      scene.add(modelo);
+    } else {
+      modelo = bytes ? new SplatMesh({ fileBytes: bytes, fileName: nombreArchivo }) : new SplatMesh({ url });
+      scene.add(modelo);
+      await modelo.initialized;
+    }
     clave = nombreArchivo || url;
     try { const g = JSON.parse(localStorage.getItem('inmex3d:'+clave) || 'null'); if (g && !params.get('c')) cfg = Object.assign(cfg, g); } catch(e){}
     aplicarGiro(); encuadrar(); armarBarra(); actualizarTitulo();
@@ -105,6 +117,7 @@ async function cargar({ url, bytes, nombreArchivo }){
 }
 function aplicarGiro(){ if (modelo) modelo.rotation.set(...cfg.rot.map(g => g*Math.PI/180)); modelo?.updateMatrixWorld(true); }
 function caja(){
+  if (modelo.esMalla){ modelo.updateMatrixWorld(true); return new THREE.Box3().setFromObject(modelo); }
   const b = modelo.getBoundingBox(true).clone(); b.applyMatrix4(modelo.matrixWorld); return b;
 }
 function encuadrar(){

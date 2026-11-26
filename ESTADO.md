@@ -28,6 +28,10 @@ Versión publicada: 0.3.0 (25/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - Giro de la camioneta desde un video caminando alrededor (`det.py` detecta el vehículo con YOLO11n-seg ONNX, `spin2.py` elige 36 cuadros nítidos y los centra). Visor `giro.html` (arrastrar, girar sola, WhatsApp). Ejemplo `ejemplo/camioneta-giro/`.
 - Lecciones de captura: para el 360, 3 vueltas (derecha, inclinada arriba, inclinada abajo) y girar sobre los pies sin caminar; para el giro, celular horizontal, 4–5 m de distancia con la máquina entera en cuadro y paso parejo.
 
+## Modelo 3D con KIRI (26/11)
+- Victor escaneó una cubierta con KIRI Engine (Photo Scan, máscara automática, 4K, exporta OBJ). `ver3d.html` ahora abre también mallas .glb (GLTFLoader en `vendor/addons/loaders`, luces hemisférica + direccional). El OBJ de KIRI se convierte a GLB acá (trimesh) antes de cargarlo.
+- Pedido de Victor: un solo visor para escenas 360, vehículos y detalles, con puntos (info, observación, foto, precio, video, WhatsApp) colocados tocando. El giro por cuadros no le sirve: quiere "render 360" → modelo 3D.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
