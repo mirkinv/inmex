@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.9.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.10.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -63,6 +63,11 @@ Versión publicada: 0.9.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - `video360.js` (`armar360(file, prog)`): el método de `herramientas/cyl2.py`+`cylh.py`+`equi.py` pasado al navegador, sin servidor. Lee ~8 cuadros por segundo (seek), mide el corrimiento entre cuadros con gradientes (no le molesta el cambio de luz), busca el cuadro donde se cierra la vuelta (da el largo y el lente), pasa cada cuadro a cilindro y pega franjas con fundido, y lo pasa a 2:1 (alto de trabajo 720, ancho hasta 4096). Lo que no se filmó se rellena con el color del borde y lo tapa el logo (tapa desde 38°). Errores claros: video corto, vuelta sin cerrar, video torcido.
 - Inicio: "🎥 Filmar la vuelta (mejor calidad)" (input con capture) y "🖼️ Usar un video de la galería" (sin capture), "Cómo filmar" plegable; las fotos quedan como "beta". En el visor, "Otro punto" ofrece filmar, galería o fotos; el punto nuevo se enlaza con flechas (GPS si lo da en 2,5 s).
 - Probado con un video simulado de 12 s armado desde `ejemplo/calle360.jpg` (vuelta de 400°, temblor, cambio de luz): cierra en el cuadro correcto, lente medido 48° (real 50°), cubre ±37°, 43 s en la compu. Falta probar con un video real del moto g05 (puede tardar 2 o 3 veces más).
+
+## 0.10.0: máquinas en 3D publicadas por link (27/11)
+- `ver3d.html` → Opciones → "🔗 Publicar y compartir link": misma sesión que la app (`inmex-ses`), sube el archivo abierto (GLB de KIRI/Polycam o splat, hasta 50 MB; migración 037 del Constructor abrió la carpeta `inmex` a modelos) a `inmex/<id>/modelo.<ext>` y guarda en `inmex_tours` (tipo maquina, `datos.modelo3d` + `cfg` con nombre, precio, WhatsApp, giro y puntos). Lo publicado se recuerda por archivo (`inmex3d-pub:<nombre>`); publicar otra vez actualiza datos y puntos sin volver a subir el modelo.
+- El link es el mismo formato (`?t=SLUG`): `index.html` ve `datos.modelo3d` y pasa a `ver3d.html?t=`, que lo abre solo para mirar (sin Opciones, girando solo, puntos y WhatsApp normalizado con `waNum`), y cuenta vista y consulta igual que los recorridos.
+- Probado en Playwright (swiftshader) con `ejemplo/camioneta.ply`: subida, datos, link, apertura del cliente, sin errores.
 
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.

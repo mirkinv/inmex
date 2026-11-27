@@ -102,7 +102,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>0.9</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>0.10</span></div>
     <p class="lead">Mostrá campos, galpones y máquinas en 360 con un link. El cliente lo recorre desde el celular, ve los datos y te escribe por WhatsApp.</p>
     <div class="card">
       <h2>Así lo ve tu cliente</h2>
@@ -135,7 +135,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
       <h2>Cargar una máquina <span class="small muted">(vista hacia adentro)</span></h2>
       <p class="muted small">Caminás alrededor y el anillo se va llenando: 24 fotos por vuelta. Para el modelo 3D hacé 3 vueltas (agachado, al pecho y con el brazo arriba) y después fotos de detalle.</p>
       <button class="pri" id="b-maquina">Empezar máquina</button>
-      <a class="btn sec" href="ver3d.html" id="a-ver3d">Ver un modelo 3D</a>
+      <a class="btn sec" href="ver3d.html" id="a-ver3d">🧊 Abrir el modelo 3D (de KIRI) y publicarlo</a>
     </div>
     <div class="card" id="c-guardados">
       <h2>Guardados en este celular</h2>
@@ -1213,6 +1213,7 @@ async function abrirRemoto(slug){
     const r=await fetch(`${SB.url}/rest/v1/inmex_tours?slug=eq.${encodeURIComponent(slug)}&select=id,slug,tipo,nombre,datos,user_id`, {headers:{apikey:SB.key}});
     const fila=(await r.json())[0];
     if (!r.ok || !fila || !fila.datos || !fila.datos.tipo) throw new Error('no está');
+    if (fila.datos.modelo3d){ location.replace('ver3d.html?t='+encodeURIComponent(slug)); return; }
     REM={ id:fila.id, slug:fila.slug, propio: !!(sesGet()&&sesGet().uid===fila.user_id) };
     anotar('vista');
     document.body.classList.add('remoto');

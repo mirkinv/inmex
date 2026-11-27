@@ -18,6 +18,7 @@ button.wa{background:var(--wa);color:#05210f;border-color:var(--wa)}
 #tit small{display:block;color:var(--mute);font-weight:400}
 #bot{position:fixed;left:0;right:0;bottom:0;padding:10px;display:flex;gap:8px;overflow-x:auto;background:linear-gradient(#0b112000,#0b1120ee);z-index:5}
 #bot button{flex:0 0 auto}
+.remoto #b-menu{display:none!important}
 .pin{position:fixed;z-index:4;transform:translate(-50%,-100%);background:var(--acc);color:#111;border:0;border-radius:20px;padding:6px 12px;min-height:36px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px #0008}
 .pin::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-top-color:var(--acc);border-bottom:0}
 #cruz{position:fixed;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border:2px solid var(--acc);border-radius:50%;z-index:4;pointer-events:none}
@@ -68,6 +69,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function waNum(t){ let d=String(t||'').replace(/\D/g,''); if (!d) return ''; if (d.startsWith('54')) return d; d=d.replace(/^0/,''); if (d.length===12){ for (const k of [2,3,4]) if (d.substr(k,2)==='15'){ d=d.slice(0,k)+d.slice(k+2); break; } } return '549'+d; }
 function toast(t, ms=2600){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(), ms); }
 
 /* ---------- escena ---------- */
@@ -87,7 +89,7 @@ addEventListener('resize', resize); resize();
 // cfg: lo que se publica junto al modelo (nombre, giro, puntos, WhatsApp)
 const params = new URLSearchParams(location.search);
 let cfg = { nombre: 'Máquina', precio: '', whatsapp: '', rot: [0,0,0], puntos: [] };
-let modelo = null, clave = null, vuelo = null;
+let modelo = null, clave = null, vuelo = null, archivo = null, REM = null;
 const guardar = () => { if (!clave) return; try { localStorage.setItem('inmex3d:'+clave, JSON.stringify(cfg)); } catch(e){} };
 
 async function cargar({ url, bytes, nombreArchivo }){
@@ -106,8 +108,8 @@ async function cargar({ url, bytes, nombreArchivo }){
       scene.add(modelo);
       await modelo.initialized;
     }
-    clave = nombreArchivo || url;
-    try { const g = JSON.parse(localStorage.getItem('inmex3d:'+clave) || 'null'); if (g && !params.get('c')) cfg = Object.assign(cfg, g); } catch(e){}
+    clave = nombreArchivo || url; archivo = bytes ? { bytes, nombre: nombreArchivo } : null;
+    try { const g = JSON.parse(localStorage.getItem('inmex3d:'+clave) || 'null'); if (g && !params.get('c') && !REM) cfg = Object.assign(cfg, g); } catch(e){}
     aplicarGiro(); encuadrar(); armarBarra(); actualizarTitulo();
     $('cargando').hidden = true; $('bot').hidden = false;
   } catch (e) {
@@ -145,8 +147,8 @@ function armarBarra(){
   bot.querySelectorAll('[data-p]').forEach(b => b.onclick = () => irA(cfg.puntos[+b.dataset.p]));
   $('b-vuelta').onclick = () => { controls.autoRotate = !controls.autoRotate; armarBarra(); };
   if ($('b-wa')) $('b-wa').onclick = () => {
-    const txt = `Hola, vi ${cfg.nombre} en 3D y quiero más información.`;
-    open(`https://wa.me/${cfg.whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(txt)}`, '_blank');
+    anotar('consulta'); const txt = `Hola, vi ${cfg.nombre} en 3D y quiero más información.`;
+    open(`https://wa.me/${waNum(cfg.whatsapp)}?text=${encodeURIComponent(txt)}`, '_blank');
   };
   // marcadores sobre el modelo
   $('pins').innerHTML = cfg.puntos.map((p,i) => `<button class="pin" data-pin="${i}">${esc(p.nombre)}</button>`).join('');
@@ -176,17 +178,19 @@ function cerrarHoja(){ $('sheet')?.remove(); $('cruz').hidden = true; }
 function menu(){
   if (!modelo){ $('file').click(); return; }
   const sh = hoja(`<h2>Opciones</h2>
-    <button class="pri" id="m-punto">➕ Marcar un punto (motor, cabina…)</button>
+    <button class="pri" id="m-pub">🔗 ${pubDe() ? 'Actualizar el link publicado' : 'Publicar y compartir link'}</button>
+    <button id="m-punto">➕ Marcar un punto (motor, cabina…)</button>
     ${cfg.puntos.length ? `<div class="small muted">Puntos marcados</div>${cfg.puntos.map((p,i)=>`<div class="item"><span>${esc(p.nombre)}</span><button data-borrar="${i}" aria-label="Quitar ${esc(p.nombre)}">✕</button></div>`).join('')}` : ''}
     <label for="m-nom">Nombre</label><input id="m-nom" value="${esc(cfg.nombre)}">
     <label for="m-pre">Precio (opcional)</label><input id="m-pre" value="${esc(cfg.precio)}" placeholder="USD 600.000">
-    <label for="m-wa">WhatsApp para consultas</label><input id="m-wa" inputmode="tel" value="${esc(cfg.whatsapp)}" placeholder="5493812124255">
+    <label for="m-wa">WhatsApp para consultas</label><input id="m-wa" inputmode="tel" value="${esc(cfg.whatsapp)}" placeholder="381 555 1234">
     <div class="small muted">¿Se ve dado vuelta o de costado?</div>
     <div class="row"><button id="m-dv">Dar vuelta</button><button id="m-90">Girar de costado</button><button id="m-enc">Centrar</button></div>
     <div class="row"><button id="m-otro">Abrir otro modelo</button><button id="m-dl">Descargar ajustes</button></div>
     <div class="row"><button data-cancelar>Cancelar</button><button class="pri" id="m-ok">Guardar</button></div>`);
   sh.querySelectorAll('[data-borrar]').forEach(b => b.onclick = () => { cfg.puntos.splice(+b.dataset.borrar,1); guardar(); armarBarra(); menu(); });
   $('m-punto').onclick = marcarPunto;
+  $('m-pub').onclick = () => { cfg.nombre=$('m-nom').value.trim()||cfg.nombre; cfg.precio=$('m-pre').value.trim(); cfg.whatsapp=$('m-wa').value.replace(/\D/g,''); guardar(); actualizarTitulo(); armarBarra(); publicar(); };
   $('m-dv').onclick = () => { cfg.rot[0] = (cfg.rot[0]+180)%360; aplicarGiro(); encuadrar(); guardar(); };
   $('m-90').onclick = () => { cfg.rot[2] = (cfg.rot[2]+90)%360; aplicarGiro(); encuadrar(); guardar(); };
   $('m-enc').onclick = encuadrar;
@@ -216,6 +220,83 @@ function marcarPunto(){
   };
 }
 
+/* ---------- publicar por link (misma base y sesión que la app: sección Inmex del Constructor) ---------- */
+const SB = { url:'https://tgyleckvjeqpndhhjksq.supabase.co', key:'sb_publishable_UXMhInXTsm9TCI_xgIpbZw_BBF_Krfj' };
+const lsJ = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null'); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } };
+const pubDe = () => clave ? lsJ('inmex3d-pub:' + clave) : null;
+async function sbAuth(cuerpo, tipo){
+  const r = await fetch(`${SB.url}/auth/v1/token?grant_type=${tipo}`, { method:'POST', headers:{ apikey:SB.key, 'Content-Type':'application/json' }, body:JSON.stringify(cuerpo) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error_description || j.msg || 'No pude entrar');
+  const s = { at:j.access_token, rt:j.refresh_token, uid:(j.user&&j.user.id)||null, vence:Date.now()+(j.expires_in||3600)*1000-60000 }; lsJ('inmex-ses', s); return s;
+}
+async function sesion(){ const s = lsJ('inmex-ses'); if (!s) return null; if (Date.now() < s.vence) return s; try { return await sbAuth({ refresh_token:s.rt }, 'refresh_token'); } catch(e){ lsJ('inmex-ses', null); return null; } }
+function pedirLogin(){
+  return new Promise(res => {
+    hoja(`<h2>Entrar para publicar</h2><p class="small muted" style="margin:0">Con el usuario y contraseña del Control Constructor. Queda guardado en este celular.</p>
+      <label for="lg-e">Email</label><input id="lg-e" type="email" autocomplete="username" inputmode="email">
+      <label for="lg-c">Contraseña</label><input id="lg-c" type="password" autocomplete="current-password">
+      <div class="row"><button id="lg-no">Cancelar</button><button class="pri" id="lg-ok">Entrar</button></div>`);
+    document.querySelector('#sheet .x').onclick = $('lg-no').onclick = () => { cerrarHoja(); res(null); };
+    $('lg-ok').onclick = async () => { const e = $('lg-e').value.trim(), c = $('lg-c').value; if (!e || !c){ toast('Completá email y contraseña.'); return; }
+      $('lg-ok').disabled = true; try { const s = await sbAuth({ email:e, password:c }, 'password'); cerrarHoja(); res(s); } catch(err){ $('lg-ok').disabled = false; toast(/invalid/i.test(err.message) ? 'Email o contraseña incorrectos.' : 'No pude entrar. Revisá la señal.'); } };
+  });
+}
+async function sbFetch(ruta, s, opc = {}){
+  const r = await fetch(SB.url + ruta, { ...opc, headers:{ apikey:SB.key, Authorization:'Bearer ' + s.at, ...(opc.headers||{}) } });
+  if (!r.ok){ const e = new Error(await r.text().catch(() => '') || ('error ' + r.status)); e.status = r.status; throw e; }
+  return r.status === 204 ? null : r.json().catch(() => null);
+}
+const extDe = n => { const m = String(n||'').toLowerCase().match(/\.(glb|ply|spz|splat|ksplat|sog)$/); return m ? m[1] : 'glb'; };
+async function publicar(){
+  if (!archivo){ toast(REM ? 'Este modelo ya está publicado.' : 'Abrí el modelo desde el archivo del celular para publicarlo.', 4000); return; }
+  if (archivo.bytes.length > 50*1024*1024){ hoja(`<h2>El modelo pesa mucho para publicarlo</h2><p class="muted">Pesa ${Math.round(archivo.bytes.length/1048576)} MB y el máximo es 50 MB. En KIRI, al exportar en GLB, elegí menos detalle (o "Low poly") y volvé a abrirlo.</p><button data-cancelar class="ok">Entendido</button>`); return; }
+  if (!navigator.onLine){ toast('Sin señal: probá cuando tengas internet.'); return; }
+  let s = await sesion(); if (!s) s = await pedirLogin(); if (!s) return;
+  hoja(`<h2>Publicando…</h2><p class="muted" id="pb-m">Subiendo el modelo (${Math.round(archivo.bytes.length/1048576*10)/10} MB)…</p>`);
+  try {
+    let pub = pubDe(); const ext = extDe(archivo.nombre), nom = (cfg.nombre||'Máquina').slice(0,120);
+    if (!pub){ const f = await sbFetch('/rest/v1/inmex_tours', s, { method:'POST', headers:{ 'Content-Type':'application/json', Prefer:'return=representation' }, body:JSON.stringify({ tipo:'maquina', nombre:nom, datos:{} }) }); pub = { id:f[0].id, slug:f[0].slug }; lsJ('inmex3d-pub:'+clave, pub); }
+    if (!pub.subido){ await sbFetch(`/storage/v1/object/inmex/${pub.id}/modelo.${ext}`, s, { method:'POST', headers:{ 'Content-Type': ext==='glb' ? 'model/gltf-binary' : 'application/octet-stream', 'x-upsert':'true' }, body:archivo.bytes }); pub.subido = true; lsJ('inmex3d-pub:'+clave, pub); }
+    if ($('pb-m')) $('pb-m').textContent = 'Guardando…';
+    await sbFetch(`/rest/v1/inmex_tours?id=eq.${pub.id}`, s, { method:'PATCH', headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' }, body:JSON.stringify({ nombre:nom, publico:true, datos:{ tipo:'maquina', nombre:nom, modelo3d:{ archivo:`modelo.${ext}` }, cfg } }) });
+    mostrarLink(pub);
+  } catch(e){
+    if (e.status === 401){ lsJ('inmex-ses', null); cerrarHoja(); toast('Se venció la sesión: entrá de nuevo.'); return; }
+    if (e.status === 403 || /row-level|policy/i.test(e.message)){ hoja(`<h2>Ese usuario no puede publicar</h2><p class="muted">Pedile a Victor que lo habilite como editor de Inmex.</p><button data-cancelar class="ok">Cerrar</button>`); return; }
+    if (e.status === 413 || /size|large/i.test(e.message)){ hoja(`<h2>El modelo pesa mucho</h2><p class="muted">El máximo es 50 MB. Exportalo con menos detalle en KIRI.</p><button data-cancelar class="ok">Cerrar</button>`); return; }
+    hoja(`<h2>No se pudo publicar</h2><p class="muted">Se cortó la conexión. Tocá Reintentar.</p><div class="row"><button data-cancelar>Cancelar</button><button class="pri" id="pb-re">Reintentar</button></div>`); $('pb-re').onclick = publicar;
+  }
+}
+function mostrarLink(pub){
+  const url = location.origin + location.pathname.replace(/ver3d\.html$/, '') + '?t=' + pub.slug, txt = `${cfg.nombre} en 3D: ${url}`;
+  hoja(`<h2>¡Listo! Ya se puede ver por link</h2><p class="small muted" style="margin:0">Quien lo abre gira la máquina, toca los puntos y te escribe por WhatsApp. Si cambiás puntos o datos, tocá "Actualizar el link publicado".</p>
+    <input id="pl-u" readonly value="${esc(url)}">
+    <a class="btn wa" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" style="text-decoration:none">💬 Mandar por WhatsApp</a>
+    <div class="row"><button id="pl-cp">📋 Copiar link</button><button id="pl-sh">Compartir…</button></div>
+    <button data-cancelar>Cerrar</button>`);
+  $('pl-cp').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('Link copiado.'); } catch(e){ $('pl-u').select(); toast('Mantené apretado el link para copiarlo.'); } };
+  $('pl-sh').onclick = async () => { try { if (navigator.share) await navigator.share({ title:cfg.nombre, text:cfg.nombre+' en 3D', url }); else $('pl-cp').click(); } catch(e){} };
+}
+function anotar(tipo){
+  if (!REM || REM.propio) return;
+  const k = 'inmex-'+tipo+'-'+REM.id; try { const t = +sessionStorage.getItem(k)||0; if (Date.now()-t < 30*60000) return; sessionStorage.setItem(k, Date.now()); } catch(e){}
+  fetch(`${SB.url}/rest/v1/inmex_vistas`, { method:'POST', headers:{ apikey:SB.key, 'Content-Type':'application/json', Prefer:'return=minimal' }, body:JSON.stringify({ tour_id:REM.id, tipo }), keepalive:true }).catch(() => {});
+}
+async function abrirRemoto(slug){
+  $('vacio').hidden = true; $('cargando').hidden = false;
+  try {
+    const r = await fetch(`${SB.url}/rest/v1/inmex_tours?slug=eq.${encodeURIComponent(slug)}&select=id,slug,nombre,datos,user_id`, { headers:{ apikey:SB.key } });
+    const f = (await r.json())[0]; if (!r.ok || !f || !f.datos || !f.datos.modelo3d) throw new Error('no está');
+    const ses = lsJ('inmex-ses'); REM = { id:f.id, slug:f.slug, propio: !!(ses && ses.uid === f.user_id) };
+    document.body.classList.add('remoto'); cfg = Object.assign(cfg, f.datos.cfg || {}); cfg.nombre = f.nombre || cfg.nombre;
+    anotar('vista'); controls.autoRotate = true;
+    await cargar({ url: `${SB.url}/storage/v1/object/public/inmex/${f.id}/${f.datos.modelo3d.archivo}` });
+  } catch(e){
+    $('cargando').hidden = true; $('vacio').hidden = false;
+    $('vacio').innerHTML = '<h2>No encontré este modelo</h2><p class="muted">Puede que el link esté incompleto o que ya no esté publicado.</p><a class="btn" href="index.html" style="text-decoration:none">Ir a Inmex 360</a>';
+  }
+}
+
 /* ---------- eventos ---------- */
 $('b-abrir').onclick = () => $('file').click();
 $('b-menu').onclick = menu;
@@ -228,6 +309,7 @@ $('file').onchange = async e => {
 
 /* ---------- arranque: ?m=modelo&c=ajustes.json ---------- */
 (async () => {
+  if (params.get('t')){ await abrirRemoto(params.get('t')); return; }
   const c = params.get('c');
   if (c){ try { cfg = Object.assign(cfg, await (await fetch(c)).json()); } catch(e){ console.warn('ajustes', e); } }
   const m = params.get('m');
@@ -242,7 +324,7 @@ renderer.setAnimationLoop(t => {
   }
   controls.update(); renderer.render(scene, camera); ubicarPins();
 });
-window.__inmex3d = { get cfg(){ return cfg; }, get modelo(){ return modelo; }, camera, controls, cargar, irA };
+window.__inmex3d = { publicar, get REM(){ return REM; }, get cfg(){ return cfg; }, get modelo(){ return modelo; }, camera, controls, cargar, irA };
 </script>
 </body>
 </html>
