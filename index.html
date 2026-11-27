@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Inmex 360</title>
 <meta name="theme-color" content="#0f1720">
+<meta name="description" content="Recorridos 360 y máquinas para mirar desde el celular, sin instalar nada.">
+<meta property="og:title" content="Inmex 360 · recorrido para mirar desde el celular">
+<meta property="og:description" content="Tocá para recorrerlo en 360, ver los datos y consultar por WhatsApp.">
+<meta property="og:image" content="https://mirkinv.github.io/inmex/og.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -87,7 +93,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.6</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.7</span></div>
     <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
     <div class="card">
       <h2>Lugar (vista hacia afuera)</h2>
@@ -1181,10 +1187,11 @@ function mostrarLink(p){
 async function abrirRemoto(slug){
   show('s-armado'); $('arm-t').textContent='Abriendo…'; $('arm-m').textContent='Cargando la vista 360.';
   try{
-    const r=await fetch(`${SB.url}/rest/v1/inmex_tours?slug=eq.${encodeURIComponent(slug)}&select=id,slug,tipo,nombre,datos`, {headers:{apikey:SB.key}});
+    const r=await fetch(`${SB.url}/rest/v1/inmex_tours?slug=eq.${encodeURIComponent(slug)}&select=id,slug,tipo,nombre,datos,user_id`, {headers:{apikey:SB.key}});
     const fila=(await r.json())[0];
     if (!r.ok || !fila || !fila.datos || !fila.datos.tipo) throw new Error('no está');
-    REM={ id:fila.id, slug:fila.slug };
+    REM={ id:fila.id, slug:fila.slug, propio: !!(sesGet()&&sesGet().uid===fila.user_id) };
+    anotar('vista');
     document.body.classList.add('remoto');
     const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, logo:d.logo, full:d.full, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
     document.title=fila.nombre+' · Inmex 360';
@@ -1196,6 +1203,13 @@ async function abrirRemoto(slug){
     $('arm-t').textContent='No encontré esta vista'; $('arm-m').innerHTML='Puede que el link esté incompleto o que ya no esté publicada. <br><br><a class="btn" href="'+esc(location.pathname)+'">Ir a Inmex 360</a>';
   }
 }
+// cuántas veces lo abrieron y tocaron Consultar (sin datos de la persona; no cuenta al dueño ni recargas en 30 min)
+function anotar(tipo){
+  if (!REM || REM.propio) return;
+  const k='inmex-'+tipo+'-'+REM.id; try{ const t=+sessionStorage.getItem(k)||0; if (Date.now()-t < 30*60000) return; sessionStorage.setItem(k, Date.now()); }catch(e){}
+  fetch(`${SB.url}/rest/v1/inmex_vistas`, {method:'POST', headers:{apikey:SB.key,'Content-Type':'application/json',Prefer:'return=minimal'}, body:JSON.stringify({tour_id:REM.id, tipo}), keepalive:true}).catch(()=>{});
+}
+document.addEventListener('click', e=>{ const a=e.target.closest && e.target.closest('a[href^="https://wa.me/"]'); if (a && REM) anotar('consulta'); }, true);
 async function blobRemoto(k){
   const r=await fetch(`${SB.url}/storage/v1/object/public/inmex/${REM.id}/${k}.jpg`); if (!r.ok) return null;
   const b=await r.blob(); mem.set(k,b); return b;
@@ -1244,16 +1258,18 @@ function menuRemoto(){
 }
 
 /* ================== publicados (lista con sacar de internet) ================== */
+const cuenta = x => (Array.isArray(x)&&x[0]&&x[0].count)||0;
 async function refreshPub(){
   const card=$('c-pub'); const s0=sesGet(); if (!s0){ card.hidden=true; return; }
   card.hidden=false; const el=$('lista-pub');
   if (!navigator.onLine){ el.innerHTML='<span class="muted small">Sin señal: no puedo ver lo publicado.</span>'; return; }
   const s=await sesion(); if (!s || !s.uid){ el.innerHTML='<span class="muted small">Entrá de nuevo para ver lo publicado: tocá "Publicar" en cualquier recorrido.</span>'; return; }
   let filas=[];
-  try{ filas=await sbFetch(`/rest/v1/inmex_tours?select=id,slug,nombre,tipo,publico,actualizado&user_id=eq.${s.uid}&deleted_at=is.null&order=actualizado.desc`, s); }
-  catch(e){ el.innerHTML='<span class="muted small">No pude traer la lista. Revisá la señal.</span>'; return; }
+  try{ filas=await sbFetch(`/rest/v1/inmex_tours?select=id,slug,nombre,tipo,publico,actualizado,v:inmex_vistas(count),c:inmex_vistas(count)&v.tipo=eq.vista&c.tipo=eq.consulta&user_id=eq.${s.uid}&deleted_at=is.null&order=actualizado.desc`, s); }
+  catch(e){ try{ filas=await sbFetch(`/rest/v1/inmex_tours?select=id,slug,nombre,tipo,publico,actualizado&user_id=eq.${s.uid}&deleted_at=is.null&order=actualizado.desc`, s); }
+    catch(e2){ el.innerHTML='<span class="muted small">No pude traer la lista. Revisá la señal.</span>'; return; } }
   if (!filas.length){ el.innerHTML='<span class="muted small">Todavía no publicaste nada. En un recorrido: Opciones → "Publicar y compartir link".</span>'; return; }
-  el.innerHTML=filas.map(f=>`<div class="item"><div><b>${esc(f.nombre)}</b><div class="small muted">${f.tipo==='lugar'?'Recorrido':'Máquina'} · ${f.publico?'<span style="color:var(--ok)">Se ve con el link</span>':'<span style="color:var(--warn)">Sacado de internet</span>'} · ${new Date(f.actualizado).toLocaleDateString('es-AR')}</div></div>
+  el.innerHTML=filas.map(f=>`<div class="item"><div><b>${esc(f.nombre)}</b><div class="small muted">${f.tipo==='lugar'?'Recorrido':'Máquina'} · ${f.publico?'<span style="color:var(--ok)">Se ve con el link</span>':'<span style="color:var(--warn)">Sacado de internet</span>'} · ${new Date(f.actualizado).toLocaleDateString('es-AR')}</div><div class="small">👁 ${cuenta(f.v)} ${cuenta(f.v)===1?'vez abierto':'veces abierto'} · 💬 ${cuenta(f.c)} ${cuenta(f.c)===1?'consulta':'consultas'}</div></div>
     <div class="row" style="flex:0 0 auto">${f.publico?`<button data-lk="${f.id}">Link</button><button data-off="${f.id}">Sacar</button>`:`<button data-on="${f.id}">Volver a publicar</button>`}</div></div>`).join('');
   const fila=id=>filas.find(x=>x.id===id);
   el.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>{ const f=fila(b.dataset.lk); mostrarLink({nombre:f.nombre, remoto:{slug:f.slug}}); });
