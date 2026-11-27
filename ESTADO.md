@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.8.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.9.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -58,12 +58,18 @@ Versión publicada: 0.8.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - Victor vio el inicio y dijo "parece que volvimos a lo viejo": lo nuevo estaba solo en el visor y el link. Inicio rehecho: frase de venta, "Así lo ve tu cliente" con dos ejemplos (ver360 con la calle y giro.html con la camioneta, miniaturas en `ejemplo/mini-*.jpg`), "Publicados en internet" siempre a la vista (con "Entrar" si no hay sesión), "Cargar un lugar" con la opción de video plegable (3 vueltas, por ahora la panorámica la armamos nosotros: botón WhatsApp) y fotos en el momento, "Cargar una máquina", sensores plegados al final.
 - Se le preguntó (tarjeta) qué sigue: filmar y que la app arme el 360 en el teléfono, máquinas 3D publicadas por link, o las dos.
 
+## 0.9.0: filmar la vuelta y la app arma el 360 sola (27/11)
+- Victor dejó la compu y se fue ("no me decepciones"); la tarjeta de qué sigue quedó sin respuesta y se siguió con lo recomendado: primero video, después 3D por link.
+- `video360.js` (`armar360(file, prog)`): el método de `herramientas/cyl2.py`+`cylh.py`+`equi.py` pasado al navegador, sin servidor. Lee ~8 cuadros por segundo (seek), mide el corrimiento entre cuadros con gradientes (no le molesta el cambio de luz), busca el cuadro donde se cierra la vuelta (da el largo y el lente), pasa cada cuadro a cilindro y pega franjas con fundido, y lo pasa a 2:1 (alto de trabajo 720, ancho hasta 4096). Lo que no se filmó se rellena con el color del borde y lo tapa el logo (tapa desde 38°). Errores claros: video corto, vuelta sin cerrar, video torcido.
+- Inicio: "🎥 Filmar la vuelta (mejor calidad)" (input con capture) y "🖼️ Usar un video de la galería" (sin capture), "Cómo filmar" plegable; las fotos quedan como "beta". En el visor, "Otro punto" ofrece filmar, galería o fotos; el punto nuevo se enlaza con flechas (GPS si lo da en 2,5 s).
+- Probado con un video simulado de 12 s armado desde `ejemplo/calle360.jpg` (vuelta de 400°, temblor, cambio de luz): cierra en el cuadro correcto, lente medido 48° (real 50°), cubre ±37°, 43 s en la compu. Falta probar con un video real del moto g05 (puede tardar 2 o 3 veces más).
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
 ## Pendiente
 - Confirmar en el moto g05 de Victor: cámara, inclinación, cierre de vuelta.
-- Probar en el teléfono de Victor: publicar un recorrido real y abrir el link en otro celular.
+- Probar en el teléfono de Victor: filmar una vuelta, ver cuánto tarda y cómo sale; publicar y abrir el link en otro celular.
 - Procesar el ZIP de fotos a modelo 3D: la compu de Victor es Lenovo IdeaCentre AIO 3 24IAP7 con i5-12450H, 12 GB y solo Intel UHD (visto en Información del sistema el 25/11, sin NVIDIA): probar Brush (WebGPU, gratis); si no alcanza, KIRI Engine Pro (USD 17,99/mes) o Scaniverse. Primera prueba real: la camioneta o la CP770.
 - Subir el modelo y los ajustes a internet (etapa 2) para mandar el link por WhatsApp.
 

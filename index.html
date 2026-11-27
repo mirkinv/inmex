@@ -102,7 +102,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>0.8</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>0.9</span></div>
     <p class="lead">Mostrá campos, galpones y máquinas en 360 con un link. El cliente lo recorre desde el celular, ve los datos y te escribe por WhatsApp.</p>
     <div class="card">
       <h2>Así lo ve tu cliente</h2>
@@ -120,12 +120,14 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
     <div class="card">
       <h2>Cargar un lugar <span class="small muted">(vista hacia afuera)</span></h2>
       <p class="muted small">Campo, galpón, obra, casa. En cada punto girás sobre vos mismo; después caminás al siguiente.</p>
-      <details class="como"><summary>🎥 Mejor calidad: filmar la vuelta en video</summary>
-        <ol class="small muted"><li>Celular parado, en el centro del lugar.</li><li>Grabá 3 vueltas lentas girando sobre tus pies, sin caminar: una derecha, una apuntando un poco arriba y otra un poco abajo.</li><li>Mandá el video: por ahora la panorámica la armamos nosotros y te queda lista para publicar.</li></ol>
-        <a class="btn" href="https://wa.me/5493812124255?text=Hola%2C%20te%20mando%20el%20video%20para%20armar%20el%20360." target="_blank" rel="noopener">💬 Mandar el video por WhatsApp</a></details>
-      <div class="small muted">Con fotos, en el momento:</div>
+      <button class="pri" id="b-vid-c">🎥 Filmar la vuelta (mejor calidad)</button>
+      <button id="b-vid-g">🖼️ Usar un video de la galería</button>
+      <details class="como"><summary>Cómo filmar para que salga bien</summary>
+        <ol class="small muted"><li>Parate en el centro del lugar con el celular derecho, a la altura del pecho.</li><li>Girá despacio sobre tus pies, sin caminar, una vuelta completa y un poquito más (unos 15 segundos).</li><li>La app arma la vista 360 sola. Para otro punto, caminá y filmá otra vuelta.</li></ol></details>
+      <input type="file" accept="video/*" capture="environment" id="vid-c" hidden><input type="file" accept="video/*" id="vid-g" hidden>
+      <div class="small muted">O con fotos, en el momento (beta):</div>
       <div class="row">
-        <button class="pri" id="b-lugar-rapido">Vuelta rápida (10 fotos)</button>
+        <button id="b-lugar-rapido">Vuelta rápida (10 fotos)</button>
         <button id="b-lugar-completo">Esfera completa (21)</button>
       </div>
     </div>
@@ -191,6 +193,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="video360.js"></script>
 <script>
 'use strict';
 /* ================== utilidades ================== */
@@ -1300,6 +1303,39 @@ async function refreshPub(){
     $('of-no').onclick=()=>sh.hidden=true; $('of-si').onclick=()=>{ sh.hidden=true; cambiar(f.id, false); }; });
 }
 
+/* ================== lugar desde video (armar360 en video360.js) ================== */
+let vidDestino=null; // proyecto al que se suma el punto (null = recorrido nuevo)
+function pedirVideo(galeria, destino){ vidDestino=destino||null; const i=$(galeria?'vid-g':'vid-c'); i.value=''; i.click(); }
+async function puntoDesdeVideo(file){
+  if (!file) return;
+  if (!window.armar360){ toast('Falta una parte de la app: recargá la página.'); return; }
+  show('s-armado'); $('arm-t').textContent='Armando la vista 360…';
+  const prog=(p,m)=>{ $('arm-bar').style.width=Math.round(p*100)+'%'; $('arm-m').textContent=m; };
+  prog(0,'Abriendo el video…'); const gps=getGPS();
+  try{
+    const r=await armar360(file, prog);
+    if (!vidDestino){ newProject('lugar', false); } else P=vidDestino;
+    const pt={ id:uid(), n:P.puntos.length+1, shots:[], gps:null, heading0:null, flechas:[], video:true, info:r.info };
+    pt.gps = await Promise.race([gps, sleep(2500).then(()=>null)]);
+    pt.pano='p_'+uid(); await saveBlob(pt.pano, r.blob);
+    P.puntos.push(pt); autoArrows(); await DB.put(P);
+    await openViewer(P, P.puntos.length-1);
+    toast(P.puntos.length>1 ? `Punto ${P.puntos.length} listo. Ubicá la flecha en Opciones si hace falta.` : 'Vista 360 lista. Para sumar otro punto: "Otro punto".', 4000);
+  }catch(e){
+    console.error(e); $('arm-t').textContent='No salió esta vez';
+    $('arm-m').innerHTML=esc(e.message||'Error al leer el video.')+'<br><br><button class="pri" id="arm-re">Filmar de nuevo</button> <button id="arm-gal">Elegir otro video</button> <button id="arm-vol">Volver</button>';
+    $('arm-re').onclick=()=>pedirVideo(false, vidDestino); $('arm-gal').onclick=()=>pedirVideo(true, vidDestino);
+    $('arm-vol').onclick=()=>{ if (vidDestino && vidDestino.puntos.length) openViewer(vidDestino, V.idx||0); else { show('s-inicio'); refreshList(); } };
+  }
+}
+function menuOtroPunto(){
+  const p=V.proj, sh=$('sheet'); sh.hidden=false;
+  sh.innerHTML=`<h2>Otro punto</h2><p class="small muted" style="margin:0">Caminá hasta el próximo lugar y hacé otra vuelta. La flecha entre los dos puntos se pone sola.</p>
+    <button class="pri" id="op-c">🎥 Filmar la vuelta</button><button id="op-g">🖼️ Video de la galería</button><button id="op-f">📷 Con fotos (beta)</button><button id="op-x">Cancelar</button>`;
+  $('op-c').onclick=()=>{ sh.hidden=true; pedirVideo(false, p); }; $('op-g').onclick=()=>{ sh.hidden=true; pedirVideo(true, p); };
+  $('op-f').onclick=()=>{ sh.hidden=true; P=p; startLugar(P.full); }; $('op-x').onclick=()=>sh.hidden=true;
+}
+
 /* ================== modo de ejemplo (sin celular) ================== */
 (function demoControls(){
   const el=$('cam'); let d=null;
@@ -1325,7 +1361,9 @@ $('b-shot').onclick=()=>{
 };
 $('b-vsalir').onclick=()=>{ pararGuia(); show('s-inicio'); refreshList(); refreshPub(); };
 $('b-giro').onclick=async()=>{ await startSensors(); V.giro=!V.giro; giroRef=null; $('b-giro').textContent = V.giro ? 'Usar dedo' : 'Usar giro'; };
-$('b-sig').onclick=()=>{ P=V.proj; startLugar(P.full); };
+$('b-sig').onclick=menuOtroPunto;
+$('b-vid-c').onclick=()=>pedirVideo(false); $('b-vid-g').onclick=()=>pedirVideo(true);
+$('vid-c').onchange=$('vid-g').onchange=e=>puntoDesdeVideo(e.target.files[0]);
 $('b-vmenu').onclick=visorMenu;
 $('b-ficha').onclick=showFicha;
 $('b-guia').onclick=guia;
@@ -1337,7 +1375,7 @@ new MutationObserver(()=>{ const sh=$('sheet'); if (sh.hidden || sh.querySelecto
 const tParam=new URLSearchParams(location.search).get('t');
 if (tParam) abrirRemoto(tParam); else { refreshList(); refreshPub(); }
 // para pruebas automáticas
-window.__inmex = { guia, pararGuia, refreshPub, menuRemoto, publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+window.__inmex = { puntoDesdeVideo, menuOtroPunto, guia, pararGuia, refreshPub, menuRemoto, publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
 </script>
 </body>
 </html>
