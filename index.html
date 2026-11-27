@@ -103,7 +103,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>0.11</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>0.11.1</span></div>
     <p class="lead">Mostrá campos, galpones y máquinas en 360 con un link. El cliente lo recorre desde el celular, ve los datos y te escribe por WhatsApp.</p>
     <div class="card">
       <h2>Así lo ve tu cliente</h2>
@@ -137,7 +137,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
       <button class="pri" id="b-maq-c">🎥 Filmar la vuelta a la máquina</button>
       <button id="b-maq-g">🖼️ Usar un video de la galería</button>
       <details class="como"><summary>Cómo filmar para que salga bien</summary>
-        <ol class="small muted"><li><b>Celular acostado</b> (horizontal).</li><li>Alejate hasta que la máquina entre <b>entera, con aire alrededor</b> (4 o 5 pasos para una camioneta).</li><li>Con el celular a la altura del pecho, caminá despacio <b>una vuelta completa</b> en 40 a 60 segundos, siempre a la misma distancia y apuntando al centro.</li><li>Mejor con cielo nublado o sombra pareja, y sin gente ni otros autos pegados.</li></ol></details>
+        <ol class="small muted"><li><b>Celular acostado</b> (horizontal).</li><li>Alejate hasta que la máquina entre <b>entera, con aire alrededor</b> (4 o 5 pasos para una camioneta).</li><li>Con el celular a la altura del pecho, caminá despacio <b>una vuelta completa</b> en 40 a 60 segundos, siempre a la misma distancia y apuntando al centro.</li><li>Mejor con cielo nublado o sombra pareja, y sin gente ni otros autos pegados.</li><li>Se filma dentro de la app (no se abre la cámara del celular). Si preferís la cámara, filmá con ella y usá "Usar un video de la galería".</li></ol></details>
       <input type="file" accept="video/*" capture="environment" id="vid-mc" hidden><input type="file" accept="video/*" id="vid-mg" hidden>
       <button id="b-maquina" class="small">📷 Con fotos para el 3D (beta)</button>
       <a class="btn sec" href="ver3d.html" id="a-ver3d">🧊 Abrir el modelo 3D (de KIRI) y publicarlo</a>
@@ -201,6 +201,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <script src="video360.js"></script>
 <script src="giro360.js"></script>
 <script src="girador.js"></script>
+<script src="filmador.js"></script>
 <script>
 'use strict';
 /* ================== utilidades ================== */
@@ -974,7 +975,7 @@ async function openSpin(proj){
 function ponerGiro(){
   const pos = SP.g ? SP.g.pos : 0; if (SP.g) SP.g.destruir();
   const r=SP.frames[SP.ring]||[]; if (!r.length) return;
-  SP.g = crearGirador($('spin'), r, { auto:true, fondo: (V.proj && V.proj.giro && V.proj.giro.estudio) ? window.FONDO_ESTUDIO : '#000' });
+  SP.g = crearGirador($('spin'), r, { auto:true, ...(V.proj && V.proj.giro && V.proj.giro.estudio ? { fondo: window.FONDO_ESTUDIO, fondoImg: window.fondoEstudio() } : { fondo:'#000' }) });
   if (pos) SP.g.ir(pos*r.length/((SP.frames[0]||r).length));
 }
 
@@ -1003,7 +1004,7 @@ async function maquinaDesdeVideo(file){
     try{ lock && lock.release(); }catch(_){}
     console.error(e); $('arm-t').textContent='No salió esta vez';
     $('arm-m').innerHTML=esc(e.message||'Error al leer el video.')+'<br><br><button class="pri" id="arm-re">Filmar de nuevo</button> <button id="arm-gal">Elegir otro video</button> <button id="arm-vol">Volver</button>';
-    $('arm-re').onclick=()=>pedirVideoMaq(false); $('arm-gal').onclick=()=>pedirVideoMaq(true);
+    $('arm-re').onclick=()=>$('b-maq-c').onclick(); $('arm-gal').onclick=()=>pedirVideoMaq(true);
     $('arm-vol').onclick=()=>{ show('s-inicio'); refreshList(); };
   }
 }
@@ -1385,7 +1386,7 @@ function menuOtroPunto(){
 $('b-lugar-rapido').onclick=()=>{ CAM.demo=false; P=null; startLugar(false); };
 $('b-lugar-completo').onclick=()=>{ CAM.demo=false; P=null; startLugar(true); };
 $('b-maquina').onclick=()=>{ CAM.demo=false; startMaquina(); };
-$('b-maq-c').onclick=()=>pedirVideoMaq(false); $('b-maq-g').onclick=()=>pedirVideoMaq(true);
+$('b-maq-c').onclick=async()=>{ if (!window.filmar || !navigator.mediaDevices){ pedirVideoMaq(false); return; } const f=await filmar({ titulo:'Filmar la vuelta a la máquina', guia:'maquina' }); if (f) maquinaDesdeVideo(f); }; $('b-maq-g').onclick=()=>pedirVideoMaq(true);
 $('vid-mc').onchange=e=>maquinaDesdeVideo(e.target.files[0]); $('vid-mg').onchange=e=>maquinaDesdeVideo(e.target.files[0]);
 $('a-demo').onclick=e=>{ e.preventDefault(); CAM.demo=true; P=null; startLugar(false); };
 $('b-sens').onclick=checkSensors;

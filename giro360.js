@@ -35,8 +35,10 @@ async function abrirModelo(base){
 }
 const S = 320, MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];
 // devuelve Float32Array S×S con 0..1 (1 = máquina)
+let lienzoM = null;
 async function mascara(ses, fuente){
-  const c = document.createElement('canvas'); c.width = S; c.height = S; const x = c.getContext('2d', { willReadFrequently: true });
+  if (!lienzoM){ lienzoM = document.createElement('canvas'); lienzoM.width = S; lienzoM.height = S; }
+  const c = lienzoM, x = c.getContext('2d', { willReadFrequently: true });
   x.drawImage(fuente, 0, 0, S, S); const d = x.getImageData(0, 0, S, S).data;
   let mx = 1; for (let i = 0; i < d.length; i += 4) mx = Math.max(mx, d[i], d[i+1], d[i+2]);
   const t = new Float32Array(3*S*S);
@@ -83,7 +85,7 @@ function caja(m){
 }
 
 /* ---------- estudio ---------- */
-function estudio(W, H, piso){
+function estudio(W, H, piso, sinDisco){
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   const hz = H*0.56;
   // pared pareja arriba (así se puede estirar con el color del borde en pantallas altas) y una luz suave en el centro
@@ -96,6 +98,7 @@ function estudio(W, H, piso){
   // curva suave entre pared y piso
   g = x.createLinearGradient(0, hz-H*0.05, 0, hz+H*0.05); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(160,164,170,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, hz-H*0.05, W, H*0.1);
+  if (sinDisco) return c;
   // disco giratorio
   const rx = W*0.36, ry = H*0.085, cy = piso - ry*0.25;
   g = x.createRadialGradient(W/2, cy, 0, W/2, cy, rx); g.addColorStop(0, '#f7f7f8'); g.addColorStop(0.85, '#e9eaec'); g.addColorStop(1, '#d6d8db');
@@ -107,21 +110,47 @@ function estudio(W, H, piso){
 
 async function armarGiro(file, prog = () => {}, opc = {}){
   const N = opc.n || 36, OW = opc.ancho || 1280, OH = Math.round(OW*9/16), base = opc.base || 'vendor/';
-  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(file);
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; const vurl = URL.createObjectURL(file); v.src = vurl;
   await new Promise((ok, ko) => { v.onloadeddata = ok; v.onerror = () => ko(new Error('No pude leer el video. Probá con otro o grabalo de nuevo.')); });
   try { await v.play(); v.pause(); } catch (e) {}
-  const dur = v.duration, VW = v.videoWidth, VH = v.videoHeight;
+  let dur = v.duration; const VW = v.videoWidth, VH = v.videoHeight;
+  // los videos filmados en la app (MediaRecorder) no traen el largo: se lo averigua yendo al final
+  if (!isFinite(dur)){
+    await new Promise(r => { const ok = () => { if (isFinite(v.duration)){ v.removeEventListener('durationchange', ok); r(); } }; v.addEventListener('durationchange', ok); v.currentTime = 1e7; setTimeout(r, 5000); });
+    dur = isFinite(v.duration) ? v.duration : (file.duracion || 0);
+    if (v.currentTime > 0.01){ const p = espera(v, 'seeked'); v.currentTime = 0; await Promise.race([p, new Promise(r => setTimeout(r, 3000))]); }
+  }
   if (!isFinite(dur) || dur < 4) throw new Error('El video es muy corto: tiene que tener la vuelta completa alrededor de la máquina (al menos 15 segundos).');
   const vertical = VH > VW;
   const modelo = abrirModelo(base).catch(e => { console.warn('modelo', e); return null; });
 
-  // 1) cuadros chicos de todo el video para cerrar la vuelta y medir nitidez
-  const sw = 96, sh = Math.max(2, Math.round(VH*sw/VW)), cs = document.createElement('canvas'); cs.width = sw; cs.height = sh; const xs = cs.getContext('2d', { willReadFrequently: true });
-  const M = Math.max(N*3, Math.min(N*6, Math.round(dur*8))), T = [], G = [], NI = [];
-  for (let i = 0; i < M; i++){
-    const t = Math.min(dur-0.05, i*dur/(M-1)); await irA(v, t); xs.drawImage(v, 0, 0, sw, sh); const g = gris(xs, sw, sh);
-    T.push(t); G.push(g); NI.push(nitidez(g, sw, sh)); prog(0.25*i/M, 'Leyendo el video…');
+  // 1) se recorre el video de corrido (sin saltar: con videos largos de celular cada salto obliga a decodificar mucho)
+  //    y de cada cuadro tomado se guarda: gris chiquito (cierre de la vuelta), nitidez y un JPEG de trabajo (no imágenes grandes en memoria)
+  const WH = Math.min(720, vertical ? VW : VH), WW = Math.round(VW*WH/(vertical ? VW : VH)), WHh = Math.round(VH*WH/(vertical ? VW : VH));
+  const sw = 96, sh = Math.max(2, Math.round(VH*sw/VW)), cs = document.createElement('canvas'); cs.width = sw; cs.height = sh; const xs = cs.getContext('2d');
+  const cw = document.createElement('canvas'); cw.width = WW; cw.height = WHh; const cwx = cw.getContext('2d');
+  const fps = Math.min(6, (N*8)/dur), C = [];
+  const tomar = t => { xs.drawImage(v, 0, 0, sw, sh); const g = gris(xs, sw, sh); C.push({ t, g, ni: nitidez(g, sw, sh) }); };
+  const reproducir = opc.saltando ? false : !!v.requestVideoFrameCallback;
+  // pasa el video de corrido desde el principio hasta tHasta y llama f(t) en cada cuadro que muestra
+  async function pasar(tHasta, f, p0, p1, msg){
+    if (v.currentTime > 0.01){ const p = espera(v, 'seeked'); v.currentTime = 0; await p; }
+    v.playbackRate = opc.velocidad || 2;
+    await new Promise((ok, ko) => {
+      let quieto = 0, ult = -1, fin = false; const terminar = () => { if (fin) return; fin = true; clearInterval(vig); v.pause(); ok(); };
+      const cb = (now, meta) => { if (fin) return; const t = meta.mediaTime; f(t); prog(p0 + (p1-p0)*Math.min(1, t/tHasta), msg); if (t >= tHasta) return terminar(); if (!v.ended) v.requestVideoFrameCallback(cb); };
+      v.requestVideoFrameCallback(cb); v.onended = terminar;
+      // si el celular frena la reproducción, se la vuelve a arrancar; si no arranca más, se sigue con lo que hay
+      const vig = setInterval(() => { if (v.ended) return terminar(); if (v.currentTime === ult){ if (++quieto > 8) terminar(); else v.play().catch(() => {}); } else { quieto = 0; ult = v.currentTime; } }, 500);
+      v.play().catch(() => { clearInterval(vig); ko(new Error('No pude reproducir el video en el celular. Probá con otro.')); });
+    });
   }
+  if (reproducir){ let prox = 0; await pasar(dur, t => { if (t >= prox){ tomar(t); prox = t + 1/fps; } }, 0, 0.2, 'Leyendo el video…'); }
+  if (C.length < N*2){ // sin reproducción (navegador viejo) o salió corto: a los saltos
+    C.length = 0; const M = N*3;
+    for (let i = 0; i < M; i++){ const t = Math.min(dur-0.05, i*dur/(M-1)); await irA(v, t); tomar(t); prog(0.2*i/M, 'Leyendo el video…'); }
+  }
+  const M = C.length, T = C.map(c => c.t), G = C.map(c => c.g), NI = C.map(c => c.ni);
   // cierre: después del 70 % del video, el cuadro más parecido al primero
   const e0 = G.map(g => difMedia(G[0], g)), desde = Math.floor(M*0.7);
   let fin = M-1, be = 1e9; for (let i = desde; i < M; i++) if (e0[i] < be){ be = e0[i]; fin = i; }
@@ -129,27 +158,34 @@ async function armarGiro(file, prog = () => {}, opc = {}){
   const cerro = be < tipico*0.6;
   if (!cerro) fin = M-1;
   const tFin = T[fin];
-  // 2) un cuadro por tramo: el más nítido
+  // 2) un cuadro por tramo: el más nítido (los demás JPEG se sueltan)
   const elegidos = [];
   for (let k = 0; k < N; k++){
     const a = tFin*k/N, b = tFin*(k+1)/N; let bi = -1, bn = -1;
     for (let i = 0; i < M; i++) if (T[i] >= a && T[i] < b && NI[i] > bn){ bn = NI[i]; bi = i; }
-    elegidos.push(bi >= 0 ? T[bi] : a);
+    if (bi < 0){ let bd = 1e9; for (let i = 0; i < M; i++){ const d = Math.abs(T[i] - a); if (d < bd){ bd = d; bi = i; } } }
+    elegidos.push(T[bi]);
   }
-  // 3) leer esos cuadros a tamaño de trabajo y recortar la máquina
-  const WH = Math.min(720, vertical ? VW : VH), WW = Math.round(VW*WH/(vertical ? VW : VH)), WHh = Math.round(VH*WH/(vertical ? VW : VH));
+  C.length = 0;
+  // segunda pasada: se guardan como JPEG solo esos 36 cuadros (de a uno, sin juntar imágenes grandes)
+  const jpgs = new Array(N).fill(null), pend = [];
+  const guardar = k => { cwx.drawImage(v, 0, 0, WW, WHh); pend.push(new Promise(r => cw.toBlob(b => { jpgs[k] = b; r(); }, 'image/jpeg', 0.9))); };
+  if (reproducir){ let k = 0; await pasar(elegidos[N-1] + 0.05, t => { while (k < N && t >= elegidos[k] - 0.02){ guardar(k); k++; } }, 0.2, 0.3, 'Eligiendo las 36 fotos…'); }
+  await Promise.all(pend);
+  for (let k = 0; k < N; k++) if (!jpgs[k]){ await irA(v, elegidos[k]); cwx.drawImage(v, 0, 0, WW, WHh); jpgs[k] = await new Promise(r => cw.toBlob(r, 'image/jpeg', 0.9)); prog(0.2 + 0.1*k/N, 'Eligiendo las 36 fotos…'); }
+  // 3) recortar la máquina en cada cuadro elegido
   const ses = await modelo;
   if (!ses && !opc.sinRecorte) prog(0.3, 'No pude cargar el recorte: va con el fondo original.');
   const cuadros = [];
   for (let k = 0; k < N; k++){
-    await irA(v, elegidos[k]);
-    const c = document.createElement('canvas'); c.width = WW; c.height = WHh; c.getContext('2d').drawImage(v, 0, 0, WW, WHh);
+    const jpg = jpgs[k];
     let m = null, bx = null;
-    if (ses){ try { m = limpiar(await mascara(ses, c)); if (m) bx = caja(m); } catch (e) { console.warn(e); } }
-    cuadros.push({ c, m, bx });
+    if (ses){ try { const bm = await createImageBitmap(jpg); const mf = limpiar(await mascara(ses, bm)); bm.close && bm.close();
+      if (mf){ bx = caja(mf); m = new Uint8Array(S*S); for (let i = 0; i < m.length; i++) m[i] = Math.round(mf[i]*255); } } catch (e) { console.warn(e); } }
+    cuadros.push({ jpg, m, bx });
     prog(0.3 + 0.5*(k+1)/N, `Recortando la máquina ${k+1} de ${N}…`); await pausa();
   }
-  v.removeAttribute('src'); v.load();
+  v.removeAttribute('src'); v.load(); URL.revokeObjectURL(vurl); cw.width = 1;
   const conCaja = cuadros.filter(q => q.bx);
   const recorte = conCaja.length >= N*0.6;
   // 4) tamaño y lugar parejos
@@ -174,12 +210,13 @@ async function armarGiro(file, prog = () => {}, opc = {}){
   const mk = document.createElement('canvas'); mk.width = S; mk.height = S; const mx = mk.getContext('2d');
   for (let k = 0; k < N; k++){
     const q = cuadros[k];
+    q.c = typeof createImageBitmap === 'function' ? await createImageBitmap(q.jpg) : await new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = URL.createObjectURL(q.jpg); });
     ox.globalAlpha = 1; ox.filter = 'none';
     if (recorte && q.m){
       ox.drawImage(fondo, 0, 0);
       const s = Ht/hs[k], dx = OW/2 - cxs[k]*s, dy = piso - ys[k]*s, w = WW*s, h = WHh*s;
       // máquina sola: cuadro + máscara como transparencia
-      const id = mx.createImageData(S, S); for (let i = 0; i < S*S; i++){ const a = Math.max(0, Math.min(1, (q.m[i]-0.25)/0.5)); id.data[i*4+3] = a*255; } mx.putImageData(id, 0, 0);
+      const id = mx.createImageData(S, S); for (let i = 0; i < S*S; i++){ const a = Math.max(0, Math.min(1, (q.m[i]/255-0.25)/0.5)); id.data[i*4+3] = a*255; } mx.putImageData(id, 0, 0);
       tmp.width = WW; tmp.height = WHh; tx.globalCompositeOperation = 'source-over'; tx.filter = 'none'; tx.drawImage(q.c, 0, 0);
       tx.globalCompositeOperation = 'destination-in'; tx.filter = 'blur(1px)'; tx.drawImage(mk, 0, 0, WW, WHh); tx.filter = 'none'; tx.globalCompositeOperation = 'source-over';
       // sombra de contacto: la silueta aplastada contra el piso
@@ -199,11 +236,14 @@ async function armarGiro(file, prog = () => {}, opc = {}){
       const s = Math.min(OW/WW, OH/WHh); ox.drawImage(q.c, (OW-WW*s)/2, (OH-WHh*s)/2, WW*s, WHh*s);
     }
     const b = await new Promise(r => out.toBlob(r, 'image/webp', 0.84)) || await new Promise(r => out.toBlob(r, 'image/jpeg', 0.86));
-    fotos.push(b); q.c.width = 1; prog(0.82 + 0.18*(k+1)/N, 'Armando el estudio…'); await pausa();
+    fotos.push(b); if (q.c.close) q.c.close(); q.c = null; q.jpg = null; q.m = null; prog(0.82 + 0.18*(k+1)/N, 'Armando el estudio…'); await pausa();
   }
   return { fotos, info: { n: N, vertical, cerro, recorte, vuelta: tFin, segundos: dur, cortadas: cuadros.filter(q => q.bx && q.bx.cortada && !q.bx.prestada).length } };
 }
 window.armarGiro = armarGiro;
 // color para estirar el estudio arriba y abajo en pantallas altas (mismo borde que estudio())
 window.FONDO_ESTUDIO = 'linear-gradient(#dfe1e4 0%, #dfe1e4 50%, #f4f4f5 50%, #f4f4f5 100%)';
+// estudio sin disco para estirarlo a los costados cuando la pantalla es más ancha que la foto (celular acostado)
+let fondoURL = null;
+window.fondoEstudio = () => fondoURL || (fondoURL = estudio(640, 360, 360*0.78, true).toDataURL('image/jpeg', 0.9));
 })();

@@ -17,7 +17,10 @@ function crearGirador(box, urls, opc = {}){
 .girador .gi-carga i{display:block;height:4px;margin-top:8px;background:#ffffff33;border-radius:2px}.girador .gi-carga i b{display:block;height:100%;width:0;background:#4f8cff;border-radius:2px}`;
     document.head.appendChild(st);
   }
-  box.style.background = opc.fondo || '#000';
+  // fondo: color (o degradé) para pantallas altas; con fondoImg, en pantallas más anchas que la foto se estira esa imagen (mismo horizonte)
+  let aspecto = 16/9; const fondo = () => { const w = box.clientWidth, h = box.clientHeight;
+    box.style.background = (opc.fondoImg && w/h > aspecto) ? `url(${opc.fondoImg}) center/100% 100% no-repeat` : (opc.fondo || '#000'); };
+  fondo();
   box.innerHTML = '<div class="gi-capa"><img class="gi-a" alt=""><img class="gi-b" alt=""></div><div class="gi-carga">Cargando el giro…<i><b></b></i></div>';
   const capa = box.querySelector('.gi-capa'), A = box.querySelector('.gi-a'), B = box.querySelector('.gi-b'), carga = box.querySelector('.gi-carga');
   let pos = 0, vel = 0, auto = opc.auto !== false, listo = false, vivo = true, ultimo = -1, ua = -1, ub = -1;
@@ -26,7 +29,7 @@ function crearGirador(box, urls, opc = {}){
   let ok = 0;
   const imgs = urls.map(u => { const im = new Image(); im.decoding = 'async'; im.src = u; return im; });
   Promise.all(imgs.map(im => (im.decode ? im.decode() : new Promise(r => im.onload = r)).catch(() => {}).then(() => { ok++; const b = carga.querySelector('b'); if (b) b.style.width = Math.round(ok/N*100) + '%'; })))
-    .then(() => { if (!vivo) return; carga.remove(); listo = true; dibujar(true); opc.alListo && opc.alListo(); });
+    .then(() => { if (!vivo) return; carga.remove(); listo = true; if (imgs[0].naturalWidth) aspecto = imgs[0].naturalWidth/imgs[0].naturalHeight; fondo(); dibujar(true); opc.alListo && opc.alListo(); });
   const mod = k => ((k % N) + N) % N;
   function dibujar(forzar){
     const p = mod(pos), i = Math.floor(p), f = p - i, j = mod(i+1);
@@ -78,7 +81,7 @@ function crearGirador(box, urls, opc = {}){
   };
   box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar);
   box.addEventListener('wheel', e => { e.preventDefault(); zoomEn(zoom*Math.exp(-e.deltaY*0.0015), e.clientX, e.clientY); }, { passive: false });
-  addEventListener('resize', () => { limitar(); dibujar(); });
+  addEventListener('resize', () => { fondo(); limitar(); dibujar(); });
   return {
     ir(p){ pos = p; vel = 0; dibujar(); }, get pos(){ return pos; }, get listo(){ return listo; },
     auto(v){ auto = v === undefined ? !auto : !!v; vel = 0; return auto; }, get girando(){ return auto; },

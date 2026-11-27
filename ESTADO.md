@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.11.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.11.1 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -76,6 +76,13 @@ Versión publicada: 0.11.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Gi
 - Inicio → "Cargar una máquina": 🎥 Filmar la vuelta a la máquina / video de la galería, con "Cómo filmar" (celular acostado, entera con aire, una vuelta de 40–60 s a la misma distancia). Las 3 vueltas con fotos quedan como "Con fotos para el 3D (beta)". Pantalla prendida mientras arma (`wakeLock`).
 - Probado en Playwright (Pixel 5) con un video de prueba armado con un auto 3D dando la vuelta con mano temblorosa sobre la calle de ejemplo: 36 fotos parejas, 0 cortadas, ~100 s en la nube (el recorte tarda ~1,8 s por foto en un hilo: en el g05 se calculan 3 a 4 minutos). Publicar y abrir el link de una máquina sigue andando.
 - Falta: probar con un video real de Victor (pedido: camioneta filmada horizontal) y poner ese giro como ejemplo del inicio; medir el tiempo en el g05.
+
+## 0.11.1: "memoria insuficiente" en el g05 (27/11)
+- Victor filmó 60 s con "Filmar la vuelta" y le salió "memoria insuficiente". Ese aviso es de Chrome en Android: el input con `capture` abre la app de cámara y, con poca memoria, Android cierra Chrome mientras se filma; al volver el video se pierde.
+- `filmador.js` (`filmar({titulo, guia})` → File): se filma dentro de la página (getUserMedia 1280×720 + MediaRecorder 4 Mbps, webm), con recuadro guía, aviso "poné el celular acostado", botón rojo de 72 px, X y Cancelar, mínimo 8 s, corte a los 90 s, pantalla prendida. "Filmar la vuelta a la máquina" lo usa; la galería sigue igual. El webm de MediaRecorder no trae duración: `armarGiro` la averigua yendo al final (o usa `file.duracion`).
+- `armarGiro` más liviano y rápido: recorre el video de corrido a 2× con `requestVideoFrameCallback` (sin saltos: con videos de celular cada salto decodifica mucho) en dos pasadas (1: gris chico y nitidez; 2: guarda como JPEG solo los 36 elegidos). Ya no tiene 36 imágenes grandes en memoria: JPEG + máscara en bytes y se decodifica de a una al armar el estudio. Video de prueba de 60 s 1080p: de 5,5 min a 1:50 en la nube.
+- En el celular acostado el estudio se estira a los costados sin corte (`fondoEstudio()`, estudio sin disco).
+- Pendiente: lo mismo para "Filmar la vuelta" de lugares (sigue con la cámara del celular).
 
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.

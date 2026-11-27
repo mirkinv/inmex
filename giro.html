@@ -23,7 +23,7 @@ const q=new URLSearchParams(location.search);
 const dir=q.get('d')||'ejemplo/camioneta-giro', N=+(q.get('n')||36), ext=q.get('x')||'jpg', wa=(q.get('w')||'5493812124255').replace(/\D/g,'');
 document.getElementById('tit').textContent=q.get('t')||'Máquina';
 const urls=[...Array(N)].map((_,k)=>`${dir}/${String(k).padStart(2,'0')}.${ext}`);
-const g=crearGirador(document.getElementById('v'), urls, { auto:true, fondo: q.get('e')==='1' ? window.FONDO_ESTUDIO : '#0b1120',
+const g=crearGirador(document.getElementById('v'), urls, { auto:true, ...(q.get('e')==='1' ? { fondo: window.FONDO_ESTUDIO, fondoImg: window.fondoEstudio() } : { fondo:'#0b1120' }),
   alTocar:()=>{ document.getElementById('mano').style.opacity=0; document.getElementById('auto').textContent='↻ Girar sola'; } });
 document.getElementById('auto').onclick=()=>{ const on=g.auto(); document.getElementById('auto').textContent = on ? '⏸ Parar' : '↻ Girar sola'; };
 document.getElementById('wa').onclick=()=>open(`https://wa.me/${wa}?text=${encodeURIComponent('Hola, vi '+document.getElementById('tit').textContent+' en 360 y quiero más información.')}`,'_blank');
