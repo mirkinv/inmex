@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.5.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.6.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -42,13 +42,20 @@ Versión publicada: 0.5.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - Link `https://mirkinv.github.io/inmex/?t=SLUG` (`abrirRemoto`): abre directo el visor solo para mirar (sin Opciones, Inicio ni Otro punto; datos ℹ️ y ficha sin Editar/Quitar), Ficha solo si tiene datos y botón "💬 Consultar" si hay WhatsApp. Las fotos se bajan de la carpeta pública (`blobRemoto`).
 - Solo publica quien está en `inmex_editores` (hoy Victor). Probado: anónimo y otro usuario no pueden cargar ni subir fotos (RLS); Playwright simulado con lugar (2 puntos, dato ℹ️, ficha) y máquina (8 fotos + detalle), segunda publicación sin volver a subir fotos, link roto con aviso.
 
+## 0.6.0: el pack profesional en la app (27/11, Victor afuera 5 h: "mejorá lo que tengas que mejorar")
+- Inicio → "Publicados en internet": lista de lo publicado por este usuario (lee `inmex_tours` con `user_id` de la sesión), con Link, "Sacar" (confirma; `publico=false`, el link muestra "No encontré esta vista") y "Volver a publicar" (mismo link). "Cerrar sesión en este celular". En Guardados, "🔗 publicado".
+- Visor de la app con logo INMEX 360 tapando piso y techo como en `ver360.html` (`ponerTapas`: color del borde de la foto; vuelta rápida tapa desde 38°, esfera completa desde 72°). Opciones → "Sacar/Poner el logo del piso y techo" (`p.logo`).
+- Opciones → "📌 Que empiece mirando para acá" (`pt.vista`), también en el link.
+- Link del cliente: entrada animada la primera vez (de lejos y mirando al piso con el logo hasta la vista elegida), botón "Más" (Compartir, Pantalla completa, mapa de los puntos si tienen GPS).
+- "▶ Recorrido" (visita guiada como Matterport, `guia`): gira hacia cada dato ℹ️ y lo muestra 4,5 s, después mira la flecha y pasa al punto siguiente; sin datos da una vuelta lenta. Se para con "⏹ Parar" o tocando la vista. En la app y en el link.
+- Probado en Playwright (Pixel 5): publicar, lista, sacar y volver a publicar, intro, Más, recorrido guiado de 2 puntos, máquina por link, sin errores.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
 ## Pendiente
 - Confirmar en el moto g05 de Victor: cámara, inclinación, cierre de vuelta.
 - Probar en el teléfono de Victor: publicar un recorrido real y abrir el link en otro celular.
-- Lista de lo publicado con "Dar de baja" (hoy se publica y actualiza; para sacarlo de internet hay que pedirlo).
 - Procesar el ZIP de fotos a modelo 3D: la compu de Victor es Lenovo IdeaCentre AIO 3 24IAP7 con i5-12450H, 12 GB y solo Intel UHD (visto en Información del sistema el 25/11, sin NVIDIA): probar Brush (WebGPU, gratis); si no alcanza, KIRI Engine Pro (USD 17,99/mes) o Scaniverse. Primera prueba real: la camioneta o la CP770.
 - Subir el modelo y los ajustes a internet (etapa 2) para mandar el link por WhatsApp.
 

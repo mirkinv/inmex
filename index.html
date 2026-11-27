@@ -19,6 +19,8 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 /* tour abierto por link: solo mirar */
+#b-rmas{display:none}
+.remoto #b-rmas{display:inline-flex;align-items:center;justify-content:center}
 .remoto #b-vmenu,.remoto #b-vsalir,.remoto #b-sig,.remoto #in-ed,.remoto #in-del,.remoto #fi-ed{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
@@ -85,7 +87,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.5</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.6</span></div>
     <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
     <div class="card">
       <h2>Lugar (vista hacia afuera)</h2>
@@ -109,6 +111,11 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
     <div class="card" id="c-guardados">
       <h2>Guardados en este celular</h2>
       <div class="list" id="lista"><span class="muted small">Todavía no hay nada.</span></div>
+    </div>
+    <div class="card" id="c-pub" hidden>
+      <h2>Publicados en internet</h2>
+      <div class="list" id="lista-pub"><span class="muted small">Cargando…</span></div>
+      <button id="b-salir-cta" class="small">Cerrar sesión en este celular</button>
     </div>
     <p class="muted small">¿Querés ver cómo funciona sin salir? <a href="#" id="a-demo" style="color:var(--accent)">Probar con una escena de ejemplo</a> (girás arrastrando el dedo).</p>
   </div>
@@ -145,10 +152,11 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
   <div id="view3d"></div>
   <div id="spin" hidden><img id="spin-img" alt="Máquina"></div>
   <div id="chips" style="position:absolute;inset:0;pointer-events:none"></div>
-  <div class="top"><div class="msg" id="v-tit">Vista</div><div class="row" style="flex:0 0 auto;pointer-events:auto"><button id="b-ficha">Ficha</button><button id="b-vmenu">Opciones</button></div></div>
+  <div class="top"><div class="msg" id="v-tit">Vista</div><div class="row" style="flex:0 0 auto;pointer-events:auto"><button id="b-ficha">Ficha</button><button id="b-vmenu">Opciones</button><button id="b-rmas">Más</button></div></div>
   <div class="bot" id="v-bot">
     <button id="b-vsalir">Inicio</button>
     <button id="b-giro">Usar giro</button>
+    <button id="b-guia" hidden>▶ Recorrido</button>
     <button class="pri" id="b-sig">Otro punto</button>
   </div>
 </section>
@@ -756,8 +764,9 @@ function initViewer(){
   V.scene = new THREE.Scene(); V.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
   const geo = new THREE.SphereGeometry(10, 64, 32); geo.scale(-1,1,1);
   V.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color:0x222222})); V.scene.add(V.mesh);
+  V.tapas = [true,false].map(abajo=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(1,64), new THREE.MeshBasicMaterial({transparent:true,depthWrite:false})); m.rotation.x=abajo?-Math.PI/2:Math.PI/2; m.rotation.z=abajo?Math.PI/2:Math.PI; m.visible=false; m.renderOrder=2; V.scene.add(m); return m; });
   let down=null, pinch=null;
-  el.addEventListener('pointerdown', e=>{ V.auto=false; down={x:e.clientX,y:e.clientY,lon:V.lon,lat:V.lat,id:e.pointerId,moved:false}; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointerdown', e=>{ V.auto=false; V.intro=null; pararGuia(); down={x:e.clientX,y:e.clientY,lon:V.lon,lat:V.lat,id:e.pointerId,moved:false}; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', e=>{ if (!down||down.id!==e.pointerId||pinch) return; const k=V.fov/innerHeight; const dx=e.clientX-down.x, dy=e.clientY-down.y; if (Math.abs(dx)+Math.abs(dy)>6) down.moved=true; V.lon=down.lon - dx*k; V.lat=clamp(down.lat + dy*k,-85,85); });
   el.addEventListener('pointerup', e=>{ if (down && !down.moved){ if (V.placeInfo) addInfoAt(e.clientX,e.clientY); else if (V.place) placeArrow(e.clientX,e.clientY); } down=null; });
   el.addEventListener('wheel', e=>{ V.fov=clamp(V.fov+e.deltaY*0.05,35,100); e.preventDefault(); }, {passive:false});
@@ -774,6 +783,8 @@ function renderViewer(){
   if ($('s-visor').hidden || !V.proj || V.proj.tipo!=='lugar') return;
   if (V.giro && S.oriLast){ const o=oriToCam(S.oriLast.a,S.oriLast.b,S.oriLast.g); if (!giroRef) giroRef={yaw:o.yaw, lon:V.lon}; V.lon = giroRef.lon + wrap180(o.yaw-giroRef.yaw); V.lat=clamp(o.pitch,-85,85); }
   else if (V.giro && S.grav){ const gr=gravToCam(S.grav.x,S.grav.y,S.grav.z); V.lat=clamp(gr.pitch,-85,85); }
+  else if (V.intro){ const k=Math.min(1,(performance.now()-V.intro.t0)/2600), e=1-Math.pow(1-k,3); V.fov=V.intro.fov+40*(1-e); V.lat=V.intro.lat0+(V.intro.lat-V.intro.lat0)*e; V.lon=V.intro.lon-35*(1-e); if (k>=1){ V.intro=null; V.auto=!V.guia; } }
+  else if (V.mover){ const k=Math.min(1,(performance.now()-V.mover.t0)/V.mover.ms), e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2; V.lon=V.mover.lon0+V.mover.dl*e; V.lat=V.mover.lat0+(V.mover.lat-V.mover.lat0)*e; if (k>=1){ const r=V.mover.res; V.mover=null; r(); } }
   else if (V.auto){ V.lon += 0.06; }
   V.camera.fov=V.fov; V.camera.updateProjectionMatrix();
   // three: mirar en dirección (lon, lat); nuestra esfera invertida en X
@@ -805,9 +816,35 @@ async function openViewer(proj, idx){
     $('view3d').hidden=false; $('spin').hidden=true; initViewer(); resizeViewer();
     const pt=proj.puntos[V.idx]; $('v-tit').textContent=`${proj.nombre} · Punto ${V.idx+1} de ${proj.puntos.length}`;
     const blob=await loadBlob(pt.pano); const url=URL.createObjectURL(blob);
-    new THREE.TextureLoader().load(url, tex=>{ tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false; V.mesh.material.dispose(); V.mesh.material=new THREE.MeshBasicMaterial({map:tex}); });
-    V.lon=0; V.lat=0; V.auto=!V.giro; V.placeInfo=false; $('b-sig').hidden=false; $('b-giro').hidden=false; $('b-sig').textContent='Otro punto';
-  } else openSpin(proj);
+    await new Promise(ok=>new THREE.TextureLoader().load(url, tex=>{ tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false; V.mesh.material.dispose(); V.mesh.material=new THREE.MeshBasicMaterial({map:tex}); ponerTapas(tex.image, proj); ok(); }, undefined, ok));
+    const vi=pt.vista||{lon:0,lat:0}; V.lon=vi.lon; V.lat=vi.lat; V.fov=75; V.auto=!V.giro && !V.guia; V.placeInfo=false; V.intro=null; $('b-sig').hidden=false; $('b-giro').hidden=false; $('b-sig').textContent='Otro punto';
+    $('b-guia').hidden = !(proj.puntos.length>1 || proj.puntos.some(x=>(x.infos||[]).length));
+    if (REM && !V.vioIntro && !matchMedia('(prefers-reduced-motion: reduce)').matches){ V.vioIntro=true; V.auto=false; V.intro={t0:performance.now(), fov:75, lon:vi.lon, lat:vi.lat, lat0:-60}; }
+  } else { $('b-guia').hidden=true; openSpin(proj); }
+}
+// tapas de piso y techo con el color del borde de la foto y el logo (esconden lo borroso, como Kuula)
+function colorFilas(img, desde, hasta){
+  const c=document.createElement('canvas'); c.width=64; c.height=32; const g=c.getContext('2d'); g.drawImage(img,0,0,64,32);
+  const d=g.getImageData(0,Math.floor(desde*32),64,Math.max(1,Math.round((hasta-desde)*32))).data; let r=0,gg=0,b=0,n=0;
+  for (let i=0;i<d.length;i+=4){ r+=d[i]; gg+=d[i+1]; b+=d[i+2]; n++; }
+  return [Math.round(r/n),Math.round(gg/n),Math.round(b/n)];
+}
+function texTapa(rgb, conTexto){
+  const S=1024, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d'), c=rgb.join(',');
+  const gr=g.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);
+  gr.addColorStop(0,'#0f1720'); gr.addColorStop(.6,'#0f1720'); gr.addColorStop(.85,`rgb(${c})`); gr.addColorStop(1,`rgba(${c},0)`);
+  g.fillStyle=gr; g.fillRect(0,0,S,S);
+  if (conTexto){ g.strokeStyle='#f2a516'; g.lineWidth=5; g.beginPath(); g.arc(S/2,S/2,S*.085,0,7); g.stroke(); g.fillStyle='#e8eef3'; g.textAlign='center'; g.textBaseline='middle'; g.font='700 40px sans-serif'; g.fillText('INMEX',S/2,S/2-8); g.fillStyle='#f2a516'; g.font='700 22px sans-serif'; g.fillText('360',S/2,S/2+28); }
+  return new THREE.CanvasTexture(cv);
+}
+function ponerTapas(img, proj){
+  const on = img && proj.logo!==false;
+  // vuelta rápida: tapa desde 38°; esfera completa: solo una tapa chica abajo (pies y trípode) y arriba
+  const capA = (proj.full ? 72 : 38)*D2R, R0=9.6, fila=a=>(90-a*R2D)/180;
+  V.tapas.forEach((m,i)=>{ m.visible=on; if (!on) return; const abajo=i===0;
+    const rgb = abajo ? colorFilas(img, fila(-capA+3*D2R), fila(-capA-2*D2R)) : colorFilas(img, fila(capA+2*D2R), fila(capA-3*D2R));
+    if (m.material.map) m.material.map.dispose(); m.material.map=texTapa(rgb, abajo); m.material.needsUpdate=true;
+    const r=R0*Math.cos(capA)*1.04; m.scale.set(r,r,1); m.position.y=(abajo?-1:1)*R0*Math.sin(capA); });
 }
 function gotoPoint(i){ if (i>=0) openViewer(V.proj, i); }
 function placeArrow(x,y){
@@ -912,7 +949,7 @@ async function refreshList(){
   const all=(await DB.all()).sort((a,b)=>b.fecha-a.fecha);
   const el=$('lista');
   if (!all.length){ el.innerHTML='<span class="muted small">Todavía no hay nada.</span>'; return; }
-  el.innerHTML = all.map(p=>`<div class="item"><div><b>${esc(p.nombre)}</b><div class="small muted">${p.tipo==='lugar' ? (p.puntos.length+' punto(s)') : (p.anillos.reduce((a,r)=>a+r.length,0)+' fotos, '+p.detalles.length+' detalles')}</div></div><div class="row" style="flex:0 0 auto"><button data-ver="${p.id}">Ver</button><button data-del="${p.id}" aria-label="Borrar">✕</button></div></div>`).join('');
+  el.innerHTML = all.map(p=>`<div class="item"><div><b>${esc(p.nombre)}</b>${p.remoto?' <span class="small" style="color:var(--ok)">🔗 publicado</span>':''}<div class="small muted">${p.tipo==='lugar' ? (p.puntos.length+' punto(s)') : (p.anillos.reduce((a,r)=>a+r.length,0)+' fotos, '+p.detalles.length+' detalles')}</div></div><div class="row" style="flex:0 0 auto"><button data-ver="${p.id}">Ver</button><button data-del="${p.id}" aria-label="Borrar">✕</button></div></div>`).join('');
   el.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{ const p=all.find(x=>x.id===b.dataset.ver); P=p; if ((p.tipo==='lugar'&&p.puntos.length)||(p.tipo==='maquina'&&p.anillos.length)) openViewer(p,0); });
   el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const sh=$('sheet'); sh.hidden=false; sh.innerHTML='<h2>¿Borrar este recorrido del celular?</h2><p class="muted">No se puede recuperar.</p><div class="row"><button id="del-no">Cancelar</button><button class="pri" id="del-si">Borrar</button></div>'; $('del-no').onclick=()=>sh.hidden=true; $('del-si').onclick=async()=>{ await DB.del(b.dataset.del); sh.hidden=true; refreshList(); }; });
 }
@@ -943,6 +980,9 @@ async function zipMaquina(p){
 }
 
 /* ================== menú del visor ================== */
+function mapaEn(id, p){ setTimeout(()=>{ const m=L.map(id,{attributionControl:true}); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(m); const ll=[];
+  p.puntos.forEach((x,i)=>{ if (!x.gps) return; ll.push([x.gps.lat,x.gps.lng]); L.marker([x.gps.lat,x.gps.lng]).addTo(m).bindPopup('Punto '+(i+1)).on('click',()=>{ $('sheet').hidden=true; gotoPoint(i); }); });
+  if (ll.length>1) L.polyline(ll,{color:'#f2a516'}).addTo(m); m.fitBounds(L.latLngBounds(ll).pad(0.4), {maxZoom:19}); }, 50); }
 const botonPub = p => p.remoto ? `<button id="vm-pub" class="pri">🔗 Actualizar el link publicado</button><button id="vm-lnk">Ver y compartir el link</button>` : `<button id="vm-pub" class="pri">🔗 Publicar y compartir link</button>`;
 function visorMenu(){
   const sh=$('sheet'); sh.hidden=false; const p=V.proj;
@@ -953,14 +993,17 @@ function visorMenu(){
       ${pt.flechas.length ? `<div class="small muted">Acomodar flechas: elegí una y tocá en la vista dónde va.</div><div class="row">${pt.flechas.map(f=>{const i=p.puntos.findIndex(x=>x.id===f.to); return `<button data-fl="${f.to}">Flecha al punto ${i+1}</button>`;}).join('')}</div>` : ''}
       ${botonPub(p)}
       <button id="vm-info">Agregar dato sobre la foto (ℹ️)</button>
+      <button id="vm-vista">📌 Que empiece mirando para acá</button>
+      <button id="vm-logo">${p.logo===false ? 'Poner el logo en piso y techo' : 'Sacar el logo del piso y techo'}</button>
       <div id="map"></div>
       <button id="vm-dl">Descargar panorámica (JPG)</button>
       <button id="vm-ok" class="ok">Cerrar</button>`;
+    $('vm-vista').onclick=async()=>{ pt.vista={lon:wrap180(V.lon), lat:V.lat}; await DB.put(p); sh.hidden=true; toast('Listo: este punto empieza mirando para acá.'); };
+    $('vm-logo').onclick=async()=>{ p.logo = p.logo===false; await DB.put(p); sh.hidden=true; ponerTapas(V.mesh.material.map && V.mesh.material.map.image, p); };
     $('vm-info').onclick=()=>{ V.placeInfo=true; V.auto=false; sh.hidden=true; toast('Tocá en la vista dónde va el dato.'); };
     sh.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{ V.place=b.dataset.fl; sh.hidden=true; toast('Tocá en la vista dónde va la flecha.'); });
     const pts=p.puntos.filter(x=>x.gps);
-    if (pts.length && window.L){ setTimeout(()=>{ const m=L.map('map',{attributionControl:true}); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(m); const ll=[]; p.puntos.forEach((x,i)=>{ if (!x.gps) return; ll.push([x.gps.lat,x.gps.lng]); L.marker([x.gps.lat,x.gps.lng]).addTo(m).bindPopup('Punto '+(i+1)+' (±'+Math.round(x.gps.acc)+' m)').on('click',()=>{ sh.hidden=true; gotoPoint(i); }); }); if (ll.length>1) L.polyline(ll,{color:'#f2a516'}).addTo(m); m.fitBounds(L.latLngBounds(ll).pad(0.4), {maxZoom:19}); }, 50); }
-    else $('map').outerHTML='<p class="small muted">Sin GPS en estos puntos: no hay mapa.</p>';
+    if (pts.length && window.L){ mapaEn('map', p); } else $('map').outerHTML='<p class="small muted">Sin GPS en estos puntos: no hay mapa.</p>';
     $('vm-dl').onclick=async()=>{ const b=await loadBlob(pt.pano); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`inmex-punto-${V.idx+1}.jpg`; document.body.appendChild(a); a.click(); a.remove(); };
   } else {
     sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">${p.anillos.length} vuelta(s), ${p.anillos.reduce((a,r)=>a+r.length,0)} fotos. ${p.anillos.length<3 ? 'Para el 3D conviene tener 3 vueltas.' : 'Alcanza para armar el modelo 3D.'}</p>${botonPub(p)}<button id="vm-zip">Descargar fotos para el 3D (ZIP)</button><a class="btn" href="ver3d.html">Ver un modelo 3D</a><button id="vm-fic">Editar ficha (precio, WhatsApp)</button><button id="vm-ok" class="ok">Cerrar</button>`;
@@ -1058,7 +1101,7 @@ function sesSet(s){ try{ if (s) localStorage.setItem('inmex-ses', JSON.stringify
 async function sbAuth(cuerpo, tipo){
   const r=await fetch(`${SB.url}/auth/v1/token?grant_type=${tipo}`, {method:'POST', headers:{apikey:SB.key,'Content-Type':'application/json'}, body:JSON.stringify(cuerpo)});
   const j=await r.json().catch(()=>({})); if (!r.ok) throw new Error(j.error_description||j.msg||'No pude entrar');
-  const s={ at:j.access_token, rt:j.refresh_token, vence:Date.now()+(j.expires_in||3600)*1000-60000 }; sesSet(s); return s;
+  const s={ at:j.access_token, rt:j.refresh_token, uid:(j.user&&j.user.id)||null, vence:Date.now()+(j.expires_in||3600)*1000-60000 }; sesSet(s); return s;
 }
 async function sesion(){
   const s=sesGet(); if (!s) return null;
@@ -1089,7 +1132,7 @@ async function sbFetch(ruta, s, opc={}){
 // qué fotos usa un recorrido y qué datos se publican (sin las fotos sueltas de la captura)
 function datosPublicos(p){
   const keys=[]; const k=x=>{ if (x) keys.push(x); return x; };
-  if (p.tipo==='lugar') return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, puntos:p.puntos.map(x=>({ id:x.id, pano:k(x.pano), gps:x.gps||null, flechas:x.flechas||[], infos:(x.infos||[]).map(i=>({...i, foto:k(i.foto)})) })) } };
+  if (p.tipo==='lugar') return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, logo:p.logo!==false, full:!!p.full, puntos:p.puntos.map(x=>({ id:x.id, pano:k(x.pano), gps:x.gps||null, vista:x.vista||null, flechas:x.flechas||[], infos:(x.infos||[]).map(i=>({...i, foto:k(i.foto)})) })) } };
   return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, anillos:p.anillos.map(r=>r.map(s=>({key:k(s.key)}))), detalles:p.detalles.map(d=>({nombre:d.nombre, key:k(d.key)})) } };
 }
 const linkDe = slug => location.origin + location.pathname + '?t=' + slug;
@@ -1143,7 +1186,7 @@ async function abrirRemoto(slug){
     if (!r.ok || !fila || !fila.datos || !fila.datos.tipo) throw new Error('no está');
     REM={ id:fila.id, slug:fila.slug };
     document.body.classList.add('remoto');
-    const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
+    const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, logo:d.logo, full:d.full, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
     document.title=fila.nombre+' · Inmex 360';
     P=proj; await openViewer(proj, 0);
     const f=proj.ficha; $('b-ficha').hidden=!(f.precio||f.descripcion||f.ubicacion||f.whatsapp);
@@ -1156,6 +1199,69 @@ async function abrirRemoto(slug){
 async function blobRemoto(k){
   const r=await fetch(`${SB.url}/storage/v1/object/public/inmex/${REM.id}/${k}.jpg`); if (!r.ok) return null;
   const b=await r.blob(); mem.set(k,b); return b;
+}
+
+/* ================== visita guiada: pasa sola por los datos y los puntos (como Matterport) ================== */
+function mirarA(lon, lat, ms=1600){ return new Promise(res=>{ V.auto=false; let dl=wrap180(lon-V.lon); V.mover={t0:performance.now(), ms, lon0:V.lon, dl, lat0:V.lat, lat:clamp(lat,-60,60), res}; }); }
+const esperarGuia = ms => new Promise(r=>{ const t0=Date.now(); const f=()=>{ if (!V.guia || Date.now()-t0>=ms) r(); else setTimeout(f,100); }; f(); });
+function pararGuia(){ if (!V.guia) return; V.guia=false; V.mover=null; $('b-guia').textContent='▶ Recorrido'; }
+async function guia(){
+  if (V.guia){ pararGuia(); return; }
+  V.guia=true; V.intro=null; $('b-guia').textContent='⏹ Parar'; $('sheet').hidden=true;
+  const p=V.proj; let vistos=0;
+  while (V.guia){
+    const pt=p.puntos[V.idx];
+    for (const inf of (pt.infos||[])){
+      if (!V.guia) break; await mirarA(inf.yaw, inf.pitch); if (!V.guia) break;
+      await showInfo(inf); await esperarGuia(4500); if (V.guia) $('sheet').hidden=true; await esperarGuia(400);
+    }
+    if (!V.guia) break;
+    if (!(pt.infos||[]).length){ await mirarA(V.lon+120, 0, 3500); await mirarA(V.lon+120, 0, 3500); }
+    vistos++;
+    const sig = V.idx+1 < p.puntos.length ? V.idx+1 : (p.puntos.length>1 && vistos<p.puntos.length ? 0 : -1);
+    if (sig<0){ pararGuia(); toast('Fin del recorrido.'); V.auto=true; break; }
+    const fl=pt.flechas.find(f=>f.to===p.puntos[sig].id); if (fl){ await mirarA(fl.yaw, fl.pitch); await esperarGuia(700); }
+    if (!V.guia) break;
+    await openViewer(p, sig); V.auto=false; await esperarGuia(900);
+  }
+}
+
+/* ================== "Más" en el link del cliente ================== */
+function menuRemoto(){
+  const p=V.proj, sh=$('sheet'); sh.hidden=false; const conMapa = p.tipo==='lugar' && p.puntos.some(x=>x.gps) && window.L;
+  const url=location.href;
+  sh.innerHTML=`<h2>${esc(p.nombre)}</h2>
+    <button id="rm-sh">Compartir con alguien</button>
+    ${document.documentElement.requestFullscreen ? `<button id="rm-full">${document.fullscreenElement?'Salir de pantalla completa':'⛶ Pantalla completa'}</button>` : ''}
+    ${conMapa ? '<div class="small muted">Dónde está cada punto (tocá uno para ir):</div><div id="rm-map" style="height:240px;border-radius:12px"></div>' : ''}
+    <p class="small muted" style="margin:0">Hecho con Inmex 360: recorridos y máquinas para ver desde el celular.</p>
+    <button id="rm-x" class="ok">Cerrar</button>`;
+  $('rm-x').onclick=()=>sh.hidden=true;
+  $('rm-sh').onclick=async()=>{ try{ if (navigator.share){ await navigator.share({title:p.nombre, text:p.nombre+' en 360', url}); return; } }catch(e){ if (e && e.name==='AbortError') return; }
+    try{ await navigator.clipboard.writeText(url); toast('Link copiado. Pegalo en WhatsApp.'); }catch(e){ toast('Copiá el link de la barra de arriba.'); } };
+  if ($('rm-full')) $('rm-full').onclick=()=>{ sh.hidden=true; if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>{}); };
+  if (conMapa) mapaEn('rm-map', p);
+}
+
+/* ================== publicados (lista con sacar de internet) ================== */
+async function refreshPub(){
+  const card=$('c-pub'); const s0=sesGet(); if (!s0){ card.hidden=true; return; }
+  card.hidden=false; const el=$('lista-pub');
+  if (!navigator.onLine){ el.innerHTML='<span class="muted small">Sin señal: no puedo ver lo publicado.</span>'; return; }
+  const s=await sesion(); if (!s || !s.uid){ el.innerHTML='<span class="muted small">Entrá de nuevo para ver lo publicado: tocá "Publicar" en cualquier recorrido.</span>'; return; }
+  let filas=[];
+  try{ filas=await sbFetch(`/rest/v1/inmex_tours?select=id,slug,nombre,tipo,publico,actualizado&user_id=eq.${s.uid}&deleted_at=is.null&order=actualizado.desc`, s); }
+  catch(e){ el.innerHTML='<span class="muted small">No pude traer la lista. Revisá la señal.</span>'; return; }
+  if (!filas.length){ el.innerHTML='<span class="muted small">Todavía no publicaste nada. En un recorrido: Opciones → "Publicar y compartir link".</span>'; return; }
+  el.innerHTML=filas.map(f=>`<div class="item"><div><b>${esc(f.nombre)}</b><div class="small muted">${f.tipo==='lugar'?'Recorrido':'Máquina'} · ${f.publico?'<span style="color:var(--ok)">Se ve con el link</span>':'<span style="color:var(--warn)">Sacado de internet</span>'} · ${new Date(f.actualizado).toLocaleDateString('es-AR')}</div></div>
+    <div class="row" style="flex:0 0 auto">${f.publico?`<button data-lk="${f.id}">Link</button><button data-off="${f.id}">Sacar</button>`:`<button data-on="${f.id}">Volver a publicar</button>`}</div></div>`).join('');
+  const fila=id=>filas.find(x=>x.id===id);
+  el.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>{ const f=fila(b.dataset.lk); mostrarLink({nombre:f.nombre, remoto:{slug:f.slug}}); });
+  const cambiar=async(id, on)=>{ try{ await sbFetch(`/rest/v1/inmex_tours?id=eq.${id}`, await sesion(), {method:'PATCH', headers:{'Content-Type':'application/json', Prefer:'return=minimal'}, body:JSON.stringify({publico:on})}); toast(on?'Se volvió a publicar con el mismo link.':'Listo: el link ya no muestra nada.'); }catch(e){ toast('No se pudo. Revisá la señal.'); } refreshPub(); };
+  el.querySelectorAll('[data-on]').forEach(b=>b.onclick=()=>cambiar(b.dataset.on, true));
+  el.querySelectorAll('[data-off]').forEach(b=>b.onclick=()=>{ const f=fila(b.dataset.off), sh=$('sheet'); sh.hidden=false;
+    sh.innerHTML=`<h2>¿Sacar "${esc(f.nombre)}" de internet?</h2><p class="muted">Quien abra el link va a ver "No encontré esta vista". Lo guardado en el celular no se toca y lo podés volver a publicar con el mismo link.</p><div class="row"><button id="of-no">Cancelar</button><button class="pri" id="of-si">Sacar de internet</button></div>`;
+    $('of-no').onclick=()=>sh.hidden=true; $('of-si').onclick=()=>{ sh.hidden=true; cambiar(f.id, false); }; });
 }
 
 /* ================== modo de ejemplo (sin celular) ================== */
@@ -1181,17 +1287,20 @@ $('b-shot').onclick=()=>{
   const done=coveredSet(); let best=null,bd=1e9; for (const tg of targets){ if (done.has(tg.id)) continue; const d=angDist(CAP.yaw,CAP.pitch,tg.yaw,tg.pitch); if (d<bd){bd=d;best=tg;} }
   if (best) autoShot(best, {yaw:CAP.yaw,pitch:CAP.pitch,roll:CAP.roll,src:CAP.src});
 };
-$('b-vsalir').onclick=()=>{ show('s-inicio'); refreshList(); };
+$('b-vsalir').onclick=()=>{ pararGuia(); show('s-inicio'); refreshList(); refreshPub(); };
 $('b-giro').onclick=async()=>{ await startSensors(); V.giro=!V.giro; giroRef=null; $('b-giro').textContent = V.giro ? 'Usar dedo' : 'Usar giro'; };
 $('b-sig').onclick=()=>{ P=V.proj; startLugar(P.full); };
 $('b-vmenu').onclick=visorMenu;
 $('b-ficha').onclick=showFicha;
+$('b-guia').onclick=guia;
+$('b-rmas').onclick=menuRemoto;
+$('b-salir-cta').onclick=()=>{ sesSet(null); refreshPub(); toast('Sesión cerrada en este celular.'); };
 // toda hoja lleva la X arriba a la derecha
 new MutationObserver(()=>{ const sh=$('sheet'); if (sh.hidden || sh.querySelector(':scope>.x')) return; const x=document.createElement('button'); x.className='x'; x.type='button'; x.setAttribute('aria-label','Cerrar'); x.textContent='✕'; x.onclick=()=>{ sh.hidden=true; V.placeInfo=false; }; sh.prepend(x); }).observe($('sheet'), {childList:true, attributes:true, attributeFilter:['hidden']});
 const tParam=new URLSearchParams(location.search).get('t');
-if (tParam) abrirRemoto(tParam); else refreshList();
+if (tParam) abrirRemoto(tParam); else { refreshList(); refreshPub(); }
 // para pruebas automáticas
-window.__inmex = { publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+window.__inmex = { guia, pararGuia, refreshPub, menuRemoto, publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
 </script>
 </body>
 </html>
