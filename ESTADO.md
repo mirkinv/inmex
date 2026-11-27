@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.7.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.8.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -53,6 +53,10 @@ Versión publicada: 0.7.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Git
 ## 0.7.0: cuántos lo miran y vista previa en WhatsApp (27/11)
 - Tabla `inmex_vistas` (migración 036 del Constructor): cada link abierto anota "vista" y cada toque a WhatsApp "consulta" (sin datos de la persona; no cuenta al dueño ni recargas dentro de 30 min, `anotar`). "Publicados en internet" muestra 👁 veces abierto y 💬 consultas (si la consulta con conteos falla, trae la lista sin conteos).
 - Vista previa del link en WhatsApp: etiquetas og con `og.jpg` (1200×630, logo INMEX 360 y "Recorrido 360"). Es la misma para todos los links (GitHub Pages no arma una por recorrido).
+
+## 0.8.0: inicio nuevo (27/11)
+- Victor vio el inicio y dijo "parece que volvimos a lo viejo": lo nuevo estaba solo en el visor y el link. Inicio rehecho: frase de venta, "Así lo ve tu cliente" con dos ejemplos (ver360 con la calle y giro.html con la camioneta, miniaturas en `ejemplo/mini-*.jpg`), "Publicados en internet" siempre a la vista (con "Entrar" si no hay sesión), "Cargar un lugar" con la opción de video plegable (3 vueltas, por ahora la panorámica la armamos nosotros: botón WhatsApp) y fotos en el momento, "Cargar una máquina", sensores plegados al final.
+- Se le preguntó (tarjeta) qué sigue: filmar y que la app arme el 360 en el teléfono, máquinas 3D publicadas por link, o las dos.
 
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.

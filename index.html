@@ -44,6 +44,15 @@ input,select,textarea{font:16px var(--body);min-height:48px;border-radius:12px;b
 .brand{display:flex;align-items:baseline;gap:10px}
 .brand h1{font-size:30px;letter-spacing:.5px}
 .brand span{color:var(--accent);font:700 13px var(--display);letter-spacing:2px;text-transform:uppercase}
+.lead{font-size:17px;margin:0;color:var(--fg)}
+.demos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.demo{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--fg);background:#0b121a;border:1px solid var(--line);border-radius:12px;overflow:hidden;padding-bottom:10px;min-height:44px}
+.demo img{width:100%;aspect-ratio:7/5;object-fit:cover;display:block;margin-bottom:6px}
+.demo b,.demo span{padding:0 10px}.demo span{color:var(--muted);font-size:13px}
+details.como{background:#0b121a;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;font-weight:600}
+details ol{margin:6px 0 10px;padding-left:20px}
+a.btn.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
 .card h2{font-size:20px}
 .muted{color:var(--muted)}
@@ -93,36 +102,47 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.7</span></div>
-    <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
+    <div class="brand"><h1>Inmex 360</h1><span>0.8</span></div>
+    <p class="lead">Mostrá campos, galpones y máquinas en 360 con un link. El cliente lo recorre desde el celular, ve los datos y te escribe por WhatsApp.</p>
     <div class="card">
-      <h2>Lugar (vista hacia afuera)</h2>
-      <p class="muted small">Galpón, predio, obra. En cada punto girás sobre vos mismo y la esfera se va completando. Después caminás al siguiente punto.</p>
+      <h2>Así lo ve tu cliente</h2>
+      <div class="demos">
+        <a class="demo" href="ver360.html?p=ejemplo/calle360.jpg&t=Calle%20en%20360&w=3812124255"><img src="ejemplo/mini-calle.jpg" alt="Vista 360 de una calle" loading="lazy"><b>Recorrido 360</b><span>Arrastrá para mirar alrededor</span></a>
+        <a class="demo" href="giro.html?t=Camioneta"><img src="ejemplo/mini-camioneta.jpg" alt="Camioneta para girar" loading="lazy"><b>Máquina para girar</b><span>Girala con el dedo</span></a>
+      </div>
+    </div>
+    <div class="card" id="c-pub">
+      <h2>Publicados en internet</h2>
+      <div class="list" id="lista-pub"><span class="muted small">Cargando…</span></div>
+      <button id="b-entrar" hidden>Entrar para ver mis publicados</button>
+      <button id="b-salir-cta" class="small" hidden>Cerrar sesión en este celular</button>
+    </div>
+    <div class="card">
+      <h2>Cargar un lugar <span class="small muted">(vista hacia afuera)</span></h2>
+      <p class="muted small">Campo, galpón, obra, casa. En cada punto girás sobre vos mismo; después caminás al siguiente.</p>
+      <details class="como"><summary>🎥 Mejor calidad: filmar la vuelta en video</summary>
+        <ol class="small muted"><li>Celular parado, en el centro del lugar.</li><li>Grabá 3 vueltas lentas girando sobre tus pies, sin caminar: una derecha, una apuntando un poco arriba y otra un poco abajo.</li><li>Mandá el video: por ahora la panorámica la armamos nosotros y te queda lista para publicar.</li></ol>
+        <a class="btn" href="https://wa.me/5493812124255?text=Hola%2C%20te%20mando%20el%20video%20para%20armar%20el%20360." target="_blank" rel="noopener">💬 Mandar el video por WhatsApp</a></details>
+      <div class="small muted">Con fotos, en el momento:</div>
       <div class="row">
         <button class="pri" id="b-lugar-rapido">Vuelta rápida (10 fotos)</button>
         <button id="b-lugar-completo">Esfera completa (21)</button>
       </div>
     </div>
     <div class="card">
-      <h2>Máquina (vista hacia adentro)</h2>
-      <p class="muted small">Caminás alrededor de la máquina y el anillo se va llenando: 24 fotos por vuelta. Para el modelo 3D hacé 3 vueltas: agachado, a la altura del pecho y con el brazo arriba. Después, fotos de detalle.</p>
+      <h2>Cargar una máquina <span class="small muted">(vista hacia adentro)</span></h2>
+      <p class="muted small">Caminás alrededor y el anillo se va llenando: 24 fotos por vuelta. Para el modelo 3D hacé 3 vueltas (agachado, al pecho y con el brazo arriba) y después fotos de detalle.</p>
       <button class="pri" id="b-maquina">Empezar máquina</button>
-      <a class="btn" href="ver3d.html" id="a-ver3d">Ver un modelo 3D</a>
-    </div>
-    <div class="card">
-      <h2>Tu celular</h2>
-      <div class="sens" id="sens"><span class="dot" style="background:var(--muted)"></span><span>Tocá "Revisar sensores".</span></div>
-      <button id="b-sens">Revisar sensores</button>
+      <a class="btn sec" href="ver3d.html" id="a-ver3d">Ver un modelo 3D</a>
     </div>
     <div class="card" id="c-guardados">
       <h2>Guardados en este celular</h2>
       <div class="list" id="lista"><span class="muted small">Todavía no hay nada.</span></div>
     </div>
-    <div class="card" id="c-pub" hidden>
-      <h2>Publicados en internet</h2>
-      <div class="list" id="lista-pub"><span class="muted small">Cargando…</span></div>
-      <button id="b-salir-cta" class="small">Cerrar sesión en este celular</button>
-    </div>
+    <details class="card"><summary><b>Tu celular</b> <span class="small muted">· qué sensores tiene</span></summary>
+      <div class="sens" id="sens"><span class="dot" style="background:var(--muted)"></span><span>Tocá "Revisar sensores".</span></div>
+      <button id="b-sens">Revisar sensores</button>
+    </details>
     <p class="muted small">¿Querés ver cómo funciona sin salir? <a href="#" id="a-demo" style="color:var(--accent)">Probar con una escena de ejemplo</a> (girás arrastrando el dedo).</p>
   </div>
 </section>
@@ -1260,8 +1280,8 @@ function menuRemoto(){
 /* ================== publicados (lista con sacar de internet) ================== */
 const cuenta = x => (Array.isArray(x)&&x[0]&&x[0].count)||0;
 async function refreshPub(){
-  const card=$('c-pub'); const s0=sesGet(); if (!s0){ card.hidden=true; return; }
-  card.hidden=false; const el=$('lista-pub');
+  const el=$('lista-pub'), s0=sesGet(); $('b-entrar').hidden=!!s0; $('b-salir-cta').hidden=!s0;
+  if (!s0){ el.innerHTML='<span class="muted small">Entrá con tu usuario del Constructor para ver lo que publicaste y cuántas veces lo miraron.</span>'; return; }
   if (!navigator.onLine){ el.innerHTML='<span class="muted small">Sin señal: no puedo ver lo publicado.</span>'; return; }
   const s=await sesion(); if (!s || !s.uid){ el.innerHTML='<span class="muted small">Entrá de nuevo para ver lo publicado: tocá "Publicar" en cualquier recorrido.</span>'; return; }
   let filas=[];
@@ -1310,6 +1330,7 @@ $('b-vmenu').onclick=visorMenu;
 $('b-ficha').onclick=showFicha;
 $('b-guia').onclick=guia;
 $('b-rmas').onclick=menuRemoto;
+$('b-entrar').onclick=async()=>{ const s=await pedirLogin(); if (s) refreshPub(); };
 $('b-salir-cta').onclick=()=>{ sesSet(null); refreshPub(); toast('Sesión cerrada en este celular.'); };
 // toda hoja lleva la X arriba a la derecha
 new MutationObserver(()=>{ const sh=$('sheet'); if (sh.hidden || sh.querySelector(':scope>.x')) return; const x=document.createElement('button'); x.className='x'; x.type='button'; x.setAttribute('aria-label','Cerrar'); x.textContent='✕'; x.onclick=()=>{ sh.hidden=true; V.placeInfo=false; }; sh.prepend(x); }).observe($('sheet'), {childList:true, attributes:true, attributeFilter:['hidden']});
