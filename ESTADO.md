@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.3.0 (25/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.4.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -31,6 +31,10 @@ Versión publicada: 0.3.0 (25/11/2026), en https://mirkinv.github.io/inmex/ (Git
 ## Modelo 3D con KIRI (26/11)
 - Victor escaneó una cubierta con KIRI Engine (Photo Scan, máscara automática, 4K, exporta OBJ). `ver3d.html` ahora abre también mallas .glb (GLTFLoader en `vendor/addons/loaders`, luces hemisférica + direccional). El OBJ de KIRI se convierte a GLB acá (trimesh) antes de cargarlo.
 - Pedido de Victor: un solo visor para escenas 360, vehículos y detalles, con puntos (info, observación, foto, precio, video, WhatsApp) colocados tocando. El giro por cuadros no le sirve: quiere "render 360" → modelo 3D.
+
+## Competencia revisada (27/11) y 0.4.0
+- Informe: https://claude.ai/artifact/6zP5KdeekoZUCNUxgHvmVz (Matterport, Kuula, CloudPano, Polycam, KIRI, Luma, Sketchfab, revisados en el Chrome de Victor con sus cuentas gratis). Nadie hace 360 con celular sin giróscopo; todos venden el link para compartir. Máquinas 3D: KIRI gratis (ilimitado, 150 fotos, GLB); Polycam de respaldo para cromados; Luma ya no hace 3D.
+- `ver360.html` 0.4.0: logo INMEX 360 tapando piso y techo como Kuula (`logo=0` lo saca, `c` = ángulo desde donde tapa, 35 por defecto; `l` = logo propio en el piso), con el logo se puede mirar hasta 80° (`v`), pellizcar para acercar, entrada animada como Matterport (`intro=0` la saca), botones Consultar por WhatsApp (`w`), Compartir (menú del celular o copia el link) y Pantalla completa.
 
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
