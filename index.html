@@ -45,7 +45,7 @@ input,select,textarea{font:16px var(--body);min-height:48px;border-radius:12px;b
 .brand h1{font-size:30px;letter-spacing:.5px}
 .brand span{color:var(--accent);font:700 13px var(--display);letter-spacing:2px;text-transform:uppercase}
 .lead{font-size:17px;margin:0;color:var(--fg)}
-.demos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.demos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .demo{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--fg);background:#0b121a;border:1px solid var(--line);border-radius:12px;overflow:hidden;padding-bottom:10px;min-height:44px}
 .demo img{width:100%;aspect-ratio:7/5;object-fit:cover;display:block;margin-bottom:6px}
 .demo b,.demo span{padding:0 10px}.demo span{color:var(--muted);font-size:13px}
@@ -88,7 +88,8 @@ textarea{padding:10px 12px;min-height:90px;resize:vertical}
 a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;background:#25d366;color:#04210f;font-weight:700;text-decoration:none}
 .chip{position:absolute;transform:translate(-50%,-50%);background:var(--accent);color:#1b1300;border:0;border-radius:999px;min-height:44px;padding:0 14px;font:700 14px var(--body);box-shadow:0 2px 10px #0008;white-space:nowrap}
 #spin{position:absolute;inset:0;touch-action:none;display:flex;align-items:center;justify-content:center;background:#000}
-#spin img{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none;transform-origin:center}
+#spin .girador,#spin.girador{position:absolute;inset:0}
+#anillos{position:absolute;left:12px;right:12px;bottom:84px;justify-content:center;z-index:3}#anillos button{flex:0 0 auto;min-height:44px}
 .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px;max-height:80%;overflow:auto;z-index:20}
 .bar{height:10px;background:#0b121a;border-radius:6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent);width:0}
@@ -102,13 +103,12 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>0.10</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>0.11</span></div>
     <p class="lead">Mostrá campos, galpones y máquinas en 360 con un link. El cliente lo recorre desde el celular, ve los datos y te escribe por WhatsApp.</p>
     <div class="card">
       <h2>Así lo ve tu cliente</h2>
       <div class="demos">
         <a class="demo" href="ver360.html?p=ejemplo/calle360.jpg&t=Calle%20en%20360&w=3812124255"><img src="ejemplo/mini-calle.jpg" alt="Vista 360 de una calle" loading="lazy"><b>Recorrido 360</b><span>Arrastrá para mirar alrededor</span></a>
-        <a class="demo" href="giro.html?t=Camioneta"><img src="ejemplo/mini-camioneta.jpg" alt="Camioneta para girar" loading="lazy"><b>Máquina para girar</b><span>Girala con el dedo</span></a>
       </div>
     </div>
     <div class="card" id="c-pub">
@@ -133,8 +133,13 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
     </div>
     <div class="card">
       <h2>Cargar una máquina <span class="small muted">(vista hacia adentro)</span></h2>
-      <p class="muted small">Caminás alrededor y el anillo se va llenando: 24 fotos por vuelta. Para el modelo 3D hacé 3 vueltas (agachado, al pecho y con el brazo arriba) y después fotos de detalle.</p>
-      <button class="pri" id="b-maquina">Empezar máquina</button>
+      <p class="muted small">Filmás una vuelta caminando alrededor y la app la deja como en una vidriera: recortada, siempre del mismo tamaño, sobre un estudio con sombra, y gira suave con el dedo.</p>
+      <button class="pri" id="b-maq-c">🎥 Filmar la vuelta a la máquina</button>
+      <button id="b-maq-g">🖼️ Usar un video de la galería</button>
+      <details class="como"><summary>Cómo filmar para que salga bien</summary>
+        <ol class="small muted"><li><b>Celular acostado</b> (horizontal).</li><li>Alejate hasta que la máquina entre <b>entera, con aire alrededor</b> (4 o 5 pasos para una camioneta).</li><li>Con el celular a la altura del pecho, caminá despacio <b>una vuelta completa</b> en 40 a 60 segundos, siempre a la misma distancia y apuntando al centro.</li><li>Mejor con cielo nublado o sombra pareja, y sin gente ni otros autos pegados.</li></ol></details>
+      <input type="file" accept="video/*" capture="environment" id="vid-mc" hidden><input type="file" accept="video/*" id="vid-mg" hidden>
+      <button id="b-maquina" class="small">📷 Con fotos para el 3D (beta)</button>
       <a class="btn sec" href="ver3d.html" id="a-ver3d">🧊 Abrir el modelo 3D (de KIRI) y publicarlo</a>
     </div>
     <div class="card" id="c-guardados">
@@ -178,7 +183,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- VISOR -->
 <section class="scr" id="s-visor" hidden>
   <div id="view3d"></div>
-  <div id="spin" hidden><img id="spin-img" alt="Máquina"></div>
+  <div id="spin" hidden></div><div id="anillos" class="row" hidden></div>
   <div id="chips" style="position:absolute;inset:0;pointer-events:none"></div>
   <div class="top"><div class="msg" id="v-tit">Vista</div><div class="row" style="flex:0 0 auto;pointer-events:auto"><button id="b-ficha">Ficha</button><button id="b-vmenu">Opciones</button><button id="b-rmas">Más</button></div></div>
   <div class="bot" id="v-bot">
@@ -194,6 +199,8 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="video360.js"></script>
+<script src="giro360.js"></script>
+<script src="girador.js"></script>
 <script>
 'use strict';
 /* ================== utilidades ================== */
@@ -950,28 +957,56 @@ async function finishMaquina(){
   if (!P.anillos.length){ show('s-inicio'); return; }
   await DB.put(P); openViewer(P,0);
 }
-// visor "girar la máquina"
-const SP = { frames:[], ring:0, i:0, zoom:1, auto:false };
+// visor "girar la máquina" (girador.js: giro suave con fundido, inercia y zoom)
+const SP = { frames:[], ring:0, g:null };
 async function openSpin(proj){
   $('view3d').hidden=true; $('spin').hidden=false; $('b-sig').hidden=true; $('b-giro').hidden=true;
   $('v-tit').textContent = proj.nombre + ' · arrastrá para girar';
-  SP.frames = [];
+  SP.frames.flat().forEach(u=>{ if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); SP.frames = [];
   for (const ring of proj.anillos){ const bs=await Promise.all(ring.map(s=>loadBlob(s.key))); SP.frames.push(bs.filter(Boolean).map(b=>URL.createObjectURL(b))); }
-  // precarga
-  SP.frames.flat().forEach(u=>{ const im=new Image(); im.src=u; });
-  SP.ring=0; SP.i=0; SP.zoom=1; SP.auto=true; drawSpin();
+  SP.ring=0; ponerGiro();
+  const an=$('anillos'); an.hidden = SP.frames.length<2;
+  an.innerHTML = SP.frames.map((r,k)=>`<button data-r="${k}" class="${k===0?'pri':''}">${['Abajo','Al pecho','Arriba'][k]||('Vuelta '+(k+1))}</button>`).join('');
+  an.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ SP.ring=+b.dataset.r; an.querySelectorAll('button').forEach(x=>x.className=x===b?'pri':''); ponerGiro(); });
   const box=$('chips'); box.innerHTML='';
   proj.detalles.forEach((d,k)=>{ const b=document.createElement('button'); b.className='chip'; b.style.cssText+=`;pointer-events:auto;left:auto;right:${12}px;top:${110+k*54}px;transform:none`; b.textContent='🔍 '+d.nombre; b.onclick=async()=>{ const u=URL.createObjectURL(await loadBlob(d.key)); const sh=$('sheet'); sh.hidden=false; sh.innerHTML=`<h2>${esc(d.nombre)}</h2><img src="${u}" alt="${esc(d.nombre)}" style="border-radius:12px"><button id="det-x">Cerrar</button>`; $('det-x').onclick=()=>sh.hidden=true; }; box.appendChild(b); });
 }
-function drawSpin(){ const r=SP.frames[SP.ring]; if (!r||!r.length) return; $('spin-img').src=r[((SP.i%r.length)+r.length)%r.length]; $('spin-img').style.transform=`scale(${SP.zoom})`; }
-(function spinEvents(){
-  const el=$('spin'); let d=null;
-  setInterval(()=>{ if (SP.auto && !$('spin').hidden && !$('s-visor').hidden){ SP.i++; drawSpin(); } }, 160);
-  el.addEventListener('pointerdown', e=>{ SP.auto=false; d={x:e.clientX,y:e.clientY,i:SP.i,ring:SP.ring}; el.setPointerCapture(e.pointerId); });
-  el.addEventListener('pointermove', e=>{ if (!d) return; const step=Math.max(12, innerWidth/ (SP.frames[SP.ring]?.length||24) /1.2); SP.i = d.i - Math.round((e.clientX-d.x)/step); const dr=Math.round((d.y-e.clientY)/120); SP.ring=clamp(d.ring+dr,0,SP.frames.length-1); drawSpin(); });
-  el.addEventListener('pointerup', ()=>{ d=null; });
-  el.addEventListener('wheel', e=>{ SP.zoom=clamp(SP.zoom-e.deltaY*0.002,1,3); drawSpin(); e.preventDefault(); }, {passive:false});
-})();
+function ponerGiro(){
+  const pos = SP.g ? SP.g.pos : 0; if (SP.g) SP.g.destruir();
+  const r=SP.frames[SP.ring]||[]; if (!r.length) return;
+  SP.g = crearGirador($('spin'), r, { auto:true, fondo: (V.proj && V.proj.giro && V.proj.giro.estudio) ? window.FONDO_ESTUDIO : '#000' });
+  if (pos) SP.g.ir(pos*r.length/((SP.frames[0]||r).length));
+}
+
+/* ================== máquina desde video (armarGiro en giro360.js) ================== */
+function pedirVideoMaq(galeria){ const i=$(galeria?'vid-mg':'vid-mc'); i.value=''; i.click(); }
+async function maquinaDesdeVideo(file){
+  if (!file) return;
+  if (!window.armarGiro){ toast('Falta una parte de la app: recargá la página.'); return; }
+  show('s-armado'); $('arm-t').textContent='Armando el giro de la máquina…';
+  const prog=(p,m)=>{ $('arm-bar').style.width=Math.round(p*100)+'%'; $('arm-m').textContent=m; };
+  prog(0,'Abriendo el video…'); let lock=null;
+  try{ lock = navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; }catch(e){}
+  $('arm-t').innerHTML='Armando el giro de la máquina…<div class="small muted" style="font-weight:400;margin-top:6px">Tarda unos minutos. Dejá el celular con la pantalla prendida, sin salir de la app.</div>';
+  try{
+    const r=await armarGiro(file, prog); try{ lock && lock.release(); }catch(e){}
+    newProject('maquina', false); P.giro={ video:true, estudio:!!r.info.recorte, info:r.info };
+    const ring=[]; for (const b of r.fotos){ const key='g_'+uid(); await saveBlob(key, b); ring.push({key}); }
+    P.anillos=[ring]; await DB.put(P);
+    await openViewer(P, 0);
+    const av=[]; if (r.info.vertical) av.push('el video está vertical: la próxima filmalo con el celular acostado');
+    if (r.info.cortadas > 4) av.push(`en ${r.info.cortadas} de ${r.info.n} fotos la máquina quedó cortada: alejate un poco más`);
+    if (!r.info.recorte) av.push('no pude recortar la máquina del fondo: quedó con el fondo original');
+    if (!r.info.cerro) av.push('no encontré dónde se cierra la vuelta: tomé el video entero');
+    toast(av.length ? 'Listo, pero '+av.join('; ')+'.' : 'Listo: girala con el dedo. Para publicarla, Opciones → Publicar.', av.length?7000:4000);
+  }catch(e){
+    try{ lock && lock.release(); }catch(_){}
+    console.error(e); $('arm-t').textContent='No salió esta vez';
+    $('arm-m').innerHTML=esc(e.message||'Error al leer el video.')+'<br><br><button class="pri" id="arm-re">Filmar de nuevo</button> <button id="arm-gal">Elegir otro video</button> <button id="arm-vol">Volver</button>';
+    $('arm-re').onclick=()=>pedirVideoMaq(false); $('arm-gal').onclick=()=>pedirVideoMaq(true);
+    $('arm-vol').onclick=()=>{ show('s-inicio'); refreshList(); };
+  }
+}
 
 /* ================== lista de guardados ================== */
 async function refreshList(){
@@ -1162,7 +1197,7 @@ async function sbFetch(ruta, s, opc={}){
 function datosPublicos(p){
   const keys=[]; const k=x=>{ if (x) keys.push(x); return x; };
   if (p.tipo==='lugar') return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, logo:p.logo!==false, full:!!p.full, puntos:p.puntos.map(x=>({ id:x.id, pano:k(x.pano), gps:x.gps||null, vista:x.vista||null, flechas:x.flechas||[], infos:(x.infos||[]).map(i=>({...i, foto:k(i.foto)})) })) } };
-  return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, anillos:p.anillos.map(r=>r.map(s=>({key:k(s.key)}))), detalles:p.detalles.map(d=>({nombre:d.nombre, key:k(d.key)})) } };
+  return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, giro:p.giro?{estudio:!!p.giro.estudio}:null, anillos:p.anillos.map(r=>r.map(s=>({key:k(s.key)}))), detalles:p.detalles.map(d=>({nombre:d.nombre, key:k(d.key)})) } };
 }
 const linkDe = slug => location.origin + location.pathname + '?t=' + slug;
 async function publicar(p){
@@ -1217,7 +1252,7 @@ async function abrirRemoto(slug){
     REM={ id:fila.id, slug:fila.slug, propio: !!(sesGet()&&sesGet().uid===fila.user_id) };
     anotar('vista');
     document.body.classList.add('remoto');
-    const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, logo:d.logo, full:d.full, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
+    const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, giro:d.giro||null, logo:d.logo, full:d.full, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
     document.title=fila.nombre+' · Inmex 360';
     P=proj; await openViewer(proj, 0);
     const f=proj.ficha; $('b-ficha').hidden=!(f.precio||f.descripcion||f.ubicacion||f.whatsapp);
@@ -1350,6 +1385,8 @@ function menuOtroPunto(){
 $('b-lugar-rapido').onclick=()=>{ CAM.demo=false; P=null; startLugar(false); };
 $('b-lugar-completo').onclick=()=>{ CAM.demo=false; P=null; startLugar(true); };
 $('b-maquina').onclick=()=>{ CAM.demo=false; startMaquina(); };
+$('b-maq-c').onclick=()=>pedirVideoMaq(false); $('b-maq-g').onclick=()=>pedirVideoMaq(true);
+$('vid-mc').onchange=e=>maquinaDesdeVideo(e.target.files[0]); $('vid-mg').onchange=e=>maquinaDesdeVideo(e.target.files[0]);
 $('a-demo').onclick=e=>{ e.preventDefault(); CAM.demo=true; P=null; startLugar(false); };
 $('b-sens').onclick=checkSensors;
 $('b-cancelar').onclick=()=>{ if (mode==='lugar' && point && point.shots.length){ finishPoint(); return; } loopOn=false; stopCamera(); show('s-inicio'); refreshList(); };
@@ -1376,7 +1413,7 @@ new MutationObserver(()=>{ const sh=$('sheet'); if (sh.hidden || sh.querySelecto
 const tParam=new URLSearchParams(location.search).get('t');
 if (tParam) abrirRemoto(tParam); else { refreshList(); refreshPub(); }
 // para pruebas automáticas
-window.__inmex = { puntoDesdeVideo, menuOtroPunto, guia, pararGuia, refreshPub, menuRemoto, publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+window.__inmex = { puntoDesdeVideo, maquinaDesdeVideo, menuOtroPunto, guia, pararGuia, refreshPub, menuRemoto, publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
 </script>
 </body>
 </html>

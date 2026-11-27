@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.10.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.11.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -69,12 +69,21 @@ Versión publicada: 0.10.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Gi
 - El link es el mismo formato (`?t=SLUG`): `index.html` ve `datos.modelo3d` y pasa a `ver3d.html?t=`, que lo abre solo para mirar (sin Opciones, girando solo, puntos y WhatsApp normalizado con `waNum`), y cuenta vista y consulta igual que los recorridos.
 - Probado en Playwright (swiftshader) con `ejemplo/camioneta.ply`: subida, datos, link, apertura del cliente, sin errores.
 
+## 0.11.0: giro de máquina como en las vidrieras profesionales (27/11)
+- Victor: el giro de la camioneta "va a saltos, eso no lo paga nadie, fijate Spyne". Revisado por dentro en su Chrome: Spyne usa 36 fotos horizontales (1424×801) que se cambian una por otra; lo suave sale de las fotos: el vehículo siempre del mismo tamaño, parado sobre el mismo disco y con fondo de estudio (pared, piso, disco, sombra). Nuestro ejemplo venía de un video vertical y muy cerca (camioneta cortada en 33 de 36 fotos): se sacó del inicio hasta tener uno bueno.
+- `giro360.js` (`armarGiro(file, prog)`): del video elige 36 cuadros parejos en la vuelta (busca el cierre con el primer cuadro y el más nítido de cada tramo), recorta el vehículo con u2netp (`vendor/modelos/u2netp.onnx`, onnxruntime-web 1.20.1 en `vendor/ort/`, un hilo), se queda con la mancha central (erosión para separar autos u objetos pegados y corte de lo que sobresale por arriba de los vecinos), iguala tamaño (alto) y lugar (ruedas sobre la línea del piso, centro en el disco) alisando entre vecinos, y dibuja estudio + sombra + reflejo. Salida webp 1280×720. Avisa si el video es vertical, si la máquina quedó cortada o si no pudo recortar.
+- `girador.js` (`crearGirador`): precarga y decodifica todo, posición continua que sigue al dedo (un ancho ≈ una vuelta), inercia al soltar, gira sola despacio, fundido solo en el último tramo entre fotos y al quedar quieto se acomoda en la foto más cercana, pellizcar/doble toque para acercar. Lo usan el visor de la app, el link publicado y `giro.html` (`?d=&n=&x=webp&e=1`).
+- Inicio → "Cargar una máquina": 🎥 Filmar la vuelta a la máquina / video de la galería, con "Cómo filmar" (celular acostado, entera con aire, una vuelta de 40–60 s a la misma distancia). Las 3 vueltas con fotos quedan como "Con fotos para el 3D (beta)". Pantalla prendida mientras arma (`wakeLock`).
+- Probado en Playwright (Pixel 5) con un video de prueba armado con un auto 3D dando la vuelta con mano temblorosa sobre la calle de ejemplo: 36 fotos parejas, 0 cortadas, ~100 s en la nube (el recorte tarda ~1,8 s por foto en un hilo: en el g05 se calculan 3 a 4 minutos). Publicar y abrir el link de una máquina sigue andando.
+- Falta: probar con un video real de Victor (pedido: camioneta filmada horizontal) y poner ese giro como ejemplo del inicio; medir el tiempo en el g05.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
 ## Pendiente
 - Confirmar en el moto g05 de Victor: cámara, inclinación, cierre de vuelta.
 - Probar en el teléfono de Victor: filmar una vuelta, ver cuánto tarda y cómo sale; publicar y abrir el link en otro celular.
+- Giro de máquina: video real de Victor, ejemplo nuevo en el inicio, tiempo en el g05 (si tarda mucho: recorte en un worker o con la GPU).
 - Procesar el ZIP de fotos a modelo 3D: la compu de Victor es Lenovo IdeaCentre AIO 3 24IAP7 con i5-12450H, 12 GB y solo Intel UHD (visto en Información del sistema el 25/11, sin NVIDIA): probar Brush (WebGPU, gratis); si no alcanza, KIRI Engine Pro (USD 17,99/mes) o Scaniverse. Primera prueba real: la camioneta o la CP770.
 - Subir el modelo y los ajustes a internet (etapa 2) para mandar el link por WhatsApp.
 

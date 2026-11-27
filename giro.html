@@ -3,37 +3,29 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Inmex · giro 360</title><meta name="theme-color" content="#0b1120">
 <style>
-html,body{margin:0;height:100%;background:#0b1120;color:#f3f5f9;font:15px/1.4 system-ui,sans-serif;overflow:hidden;touch-action:none}
-#v{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-#v img{max-width:100%;max-height:100%;user-select:none;-webkit-user-drag:none}
-#top{position:fixed;left:0;right:0;top:0;padding:10px 12px;background:linear-gradient(#0b1120ee,#0b112000);font-weight:700}
-#top small{display:block;color:#9aa4b8;font-weight:400}
-#bar{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:8px;align-items:center}
-#bar button{min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #ffffff22;background:#141c2e;color:#f3f5f9;font:inherit;font-weight:600}
+html,body{margin:0;height:100%;background:#0b1120;color:#f3f5f9;font:15px/1.4 system-ui,sans-serif;overflow:hidden}
+#v{position:fixed;inset:0}
+#top{position:fixed;left:0;right:0;top:0;padding:10px 12px 18px;background:linear-gradient(#0b1120ee,#0b112000);font-weight:700;z-index:2;pointer-events:none}
+#top small{display:block;color:#c3cad8;font-weight:400}
+#bar{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:8px;align-items:center;z-index:2}
+#bar button{min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #ffffff22;background:#141c2ee6;color:#f3f5f9;font:inherit;font-weight:600}
 #bar .wa{background:#25d366;color:#05210f;border-color:#25d366}
-#prog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#141c2e;padding:12px 16px;border-radius:10px}
-#mano{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#000a;padding:8px 14px;border-radius:20px;transition:opacity .6s}
+#mano{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#000a;padding:8px 14px;border-radius:20px;transition:opacity .6s;z-index:2;pointer-events:none}
 </style></head><body>
-<div id="v"><img id="img" alt="Vehículo"></div>
-<div id="top"><span id="tit">Camioneta de prueba</span><small>Arrastrá a los costados para girarla</small></div>
-<div id="prog">Cargando 0%</div>
+<div id="v"></div>
+<div id="top"><span id="tit">Máquina</span><small>Arrastrá a los costados para girarla · pellizcá para acercar</small></div>
 <div id="mano">👆 Deslizá para girar</div>
-<div id="bar"><button id="auto">↻ Girar sola</button><span style="flex:1"></span><button class="wa" id="wa">WhatsApp</button></div>
+<div id="bar"><button id="auto">⏸ Parar</button><span style="flex:1"></span><button class="wa" id="wa">WhatsApp</button></div>
+<script src="giro360.js"></script><script src="girador.js"></script>
 <script>
-// ?d=carpeta&n=36&t=titulo&w=5493812124255
+// ?d=carpeta&n=36&x=webp&e=1 (fondo de estudio)&t=titulo&w=5493812124255
 const q=new URLSearchParams(location.search);
-const dir=q.get('d')||'ejemplo/camioneta-giro', N=+(q.get('n')||36), wa=(q.get('w')||'5493812124255').replace(/\D/g,'');
-document.getElementById('tit').textContent=q.get('t')||'Camioneta de prueba';
-const img=document.getElementById('img'), fr=[]; let ok=0, i=0, auto=null;
-for(let k=0;k<N;k++){const im=new Image(); im.onload=()=>{ok++;document.getElementById('prog').textContent='Cargando '+Math.round(ok/N*100)+'%'; if(ok===N){document.getElementById('prog').remove(); mostrar(0);}}; im.src=`${dir}/${String(k).padStart(2,'0')}.jpg`; fr.push(im);}
-function mostrar(k){i=((k%N)+N)%N; img.src=fr[i].src;}
-let x0=null, i0=0;
-const px=()=>Math.max(8, innerWidth/ (N*0.9));
-addEventListener('pointerdown',e=>{if(e.target.closest('#bar'))return; x0=e.clientX;i0=i;parar();document.getElementById('mano').style.opacity=0;});
-addEventListener('pointermove',e=>{if(x0===null)return; mostrar(i0-Math.round((e.clientX-x0)/px()));});
-addEventListener('pointerup',()=>x0=null); addEventListener('pointercancel',()=>x0=null);
-function parar(){if(auto){clearInterval(auto);auto=null;document.getElementById('auto').textContent='↻ Girar sola';}}
-document.getElementById('auto').onclick=()=>{ if(auto) return parar(); auto=setInterval(()=>mostrar(i+1),110); document.getElementById('auto').textContent='⏸ Parar'; };
+const dir=q.get('d')||'ejemplo/camioneta-giro', N=+(q.get('n')||36), ext=q.get('x')||'jpg', wa=(q.get('w')||'5493812124255').replace(/\D/g,'');
+document.getElementById('tit').textContent=q.get('t')||'Máquina';
+const urls=[...Array(N)].map((_,k)=>`${dir}/${String(k).padStart(2,'0')}.${ext}`);
+const g=crearGirador(document.getElementById('v'), urls, { auto:true, fondo: q.get('e')==='1' ? window.FONDO_ESTUDIO : '#0b1120',
+  alTocar:()=>{ document.getElementById('mano').style.opacity=0; document.getElementById('auto').textContent='↻ Girar sola'; } });
+document.getElementById('auto').onclick=()=>{ const on=g.auto(); document.getElementById('auto').textContent = on ? '⏸ Parar' : '↻ Girar sola'; };
 document.getElementById('wa').onclick=()=>open(`https://wa.me/${wa}?text=${encodeURIComponent('Hola, vi '+document.getElementById('tit').textContent+' en 360 y quiero más información.')}`,'_blank');
 setTimeout(()=>document.getElementById('mano').style.opacity=0,3500);
 </script></body></html>
