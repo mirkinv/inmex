@@ -1,6 +1,6 @@
 # Estado de Inmex 360
 
-Versión publicada: 0.4.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
+Versión publicada: 0.5.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (GitHub Pages, rama main, carpeta raíz).
 
 ## Hecho
 - Modo Lugar: guía en esfera; las fotos se sacan solas al apuntar al punto naranja. Vuelta rápida (10 fotos) o esfera completa (21, por columnas: horizonte, arriba y abajo en el mismo rumbo).
@@ -36,15 +36,21 @@ Versión publicada: 0.4.0 (27/11/2026), en https://mirkinv.github.io/inmex/ (Git
 - Informe: https://claude.ai/artifact/6zP5KdeekoZUCNUxgHvmVz (Matterport, Kuula, CloudPano, Polycam, KIRI, Luma, Sketchfab, revisados en el Chrome de Victor con sus cuentas gratis). Nadie hace 360 con celular sin giróscopo; todos venden el link para compartir. Máquinas 3D: KIRI gratis (ilimitado, 150 fotos, GLB); Polycam de respaldo para cromados; Luma ya no hace 3D.
 - `ver360.html` 0.4.0: logo INMEX 360 tapando piso y techo como Kuula (`logo=0` lo saca, `c` = ángulo desde donde tapa, 35 por defecto; `l` = logo propio en el piso), con el logo se puede mirar hasta 80° (`v`), pellizcar para acercar, entrada animada como Matterport (`intro=0` la saca), botones Consultar por WhatsApp (`w`), Compartir (menú del celular o copia el link) y Pantalla completa.
 
+## 0.5.0: publicar y compartir por link (etapa 2, 27/11)
+- Victor eligió guardar dentro de la base del Constructor (Supabase tgyleckvjeqpndhhjksq; el plan gratis no deja una tercera base), en una sección aparte: tablas `inmex_tours` (slug del link, tipo, nombre, `datos` jsonb, `publico`, `deleted_at`) e `inmex_editores`, y la carpeta pública de fotos `inmex` (`<id del tour>/<clave>.jpg`). Migración en el repo del Constructor: `supabase/migrations/035_inmex.sql`. No tiene `empresa_id`: no es dato de una empresa; se puede mudar copiando tablas y carpeta.
+- Opciones → "🔗 Publicar y compartir link": entra con el usuario del Constructor (queda guardado en el teléfono, `inmex-ses`), sube solo las fotos que faltan (`p.remoto.subidas`, si se corta sigue desde ahí con Reintentar) y guarda los datos sin las fotos sueltas de la captura (`datosPublicos`). Publicar otra vez actualiza el mismo link. Hoja final: Mandar por WhatsApp, Copiar, Compartir y "Ver cómo lo ve el cliente".
+- Link `https://mirkinv.github.io/inmex/?t=SLUG` (`abrirRemoto`): abre directo el visor solo para mirar (sin Opciones, Inicio ni Otro punto; datos ℹ️ y ficha sin Editar/Quitar), Ficha solo si tiene datos y botón "💬 Consultar" si hay WhatsApp. Las fotos se bajan de la carpeta pública (`blobRemoto`).
+- Solo publica quien está en `inmex_editores` (hoy Victor). Probado: anónimo y otro usuario no pueden cargar ni subir fotos (RLS); Playwright simulado con lugar (2 puntos, dato ℹ️, ficha) y máquina (8 fotos + detalle), segunda publicación sin volver a subir fotos, link roto con aviso.
+
 ## Etapas (acordadas con Victor 25/11)
 1. Piloto en el celular (hecho). 2. Guardar en internet y link para el cliente. 3. Maqueta 3D de máquinas (en curso). 4. Maqueta de casas: plano dibujado y levantado en 3D, tocar ambiente → 360. 5. Campos: contorno sobre satélite + puntos 360.
 
 ## Pendiente
 - Confirmar en el moto g05 de Victor: cámara, inclinación, cierre de vuelta.
-- Guardar recorridos en internet y link para el cliente (etapa 2). Se le preguntó a Victor dónde (25/11): base Supabase nueva solo para Inmex (recomendado), dentro del Constructor, o archivo para mandar.
+- Probar en el teléfono de Victor: publicar un recorrido real y abrir el link en otro celular.
+- Lista de lo publicado con "Dar de baja" (hoy se publica y actualiza; para sacarlo de internet hay que pedirlo).
 - Procesar el ZIP de fotos a modelo 3D: la compu de Victor es Lenovo IdeaCentre AIO 3 24IAP7 con i5-12450H, 12 GB y solo Intel UHD (visto en Información del sistema el 25/11, sin NVIDIA): probar Brush (WebGPU, gratis); si no alcanza, KIRI Engine Pro (USD 17,99/mes) o Scaniverse. Primera prueba real: la camioneta o la CP770.
 - Subir el modelo y los ajustes a internet (etapa 2) para mandar el link por WhatsApp.
 
 ## Preguntas abiertas a Victor
 - Qué es Inmex hoy y qué máquinas van primero.
-- Dónde guardar los tours para el link (tarjeta del 25/11).

@@ -18,6 +18,8 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+/* tour abierto por link: solo mirar */
+.remoto #b-vmenu,.remoto #b-vsalir,.remoto #b-sig,.remoto #in-ed,.remoto #in-del,.remoto #fi-ed{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
@@ -83,7 +85,7 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:48px;bor
 <!-- INICIO -->
 <section class="scr" id="s-inicio">
   <div class="wrap">
-    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.3</span></div>
+    <div class="brand"><h1>Inmex 360</h1><span>prueba 0.5</span></div>
     <p class="muted">Recorridos 360 y máquinas en 3D con el celular, sin cámara especial. Girás despacio y las fotos se sacan solas.</p>
     <div class="card">
       <h2>Lugar (vista hacia afuera)</h2>
@@ -194,7 +196,7 @@ const DB = (() => {
 })();
 const mem = new Map(); // blobs en memoria (por si IndexedDB no anda)
 async function saveBlob(k, b){ mem.set(k, b); await DB.putBlob(k, b); }
-async function loadBlob(k){ return mem.get(k) || await DB.getBlob(k); }
+async function loadBlob(k){ return mem.get(k) || (REM ? await blobRemoto(k) : await DB.getBlob(k)); }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
 /* ================== geometría ================== */
@@ -888,7 +890,7 @@ async function openSpin(proj){
   $('view3d').hidden=true; $('spin').hidden=false; $('b-sig').hidden=true; $('b-giro').hidden=true;
   $('v-tit').textContent = proj.nombre + ' · arrastrá para girar';
   SP.frames = [];
-  for (const ring of proj.anillos){ const urls=[]; for (const s of ring){ urls.push(URL.createObjectURL(await loadBlob(s.key))); } SP.frames.push(urls); }
+  for (const ring of proj.anillos){ const bs=await Promise.all(ring.map(s=>loadBlob(s.key))); SP.frames.push(bs.filter(Boolean).map(b=>URL.createObjectURL(b))); }
   // precarga
   SP.frames.flat().forEach(u=>{ const im=new Image(); im.src=u; });
   SP.ring=0; SP.i=0; SP.zoom=1; SP.auto=true; drawSpin();
@@ -941,6 +943,7 @@ async function zipMaquina(p){
 }
 
 /* ================== menú del visor ================== */
+const botonPub = p => p.remoto ? `<button id="vm-pub" class="pri">🔗 Actualizar el link publicado</button><button id="vm-lnk">Ver y compartir el link</button>` : `<button id="vm-pub" class="pri">🔗 Publicar y compartir link</button>`;
 function visorMenu(){
   const sh=$('sheet'); sh.hidden=false; const p=V.proj;
   if (p.tipo==='lugar'){
@@ -948,6 +951,7 @@ function visorMenu(){
     sh.innerHTML = `<h2>Opciones</h2>
       <label class="small muted" for="vm-nom">Nombre del recorrido</label><input id="vm-nom" value="${esc(p.nombre)}">
       ${pt.flechas.length ? `<div class="small muted">Acomodar flechas: elegí una y tocá en la vista dónde va.</div><div class="row">${pt.flechas.map(f=>{const i=p.puntos.findIndex(x=>x.id===f.to); return `<button data-fl="${f.to}">Flecha al punto ${i+1}</button>`;}).join('')}</div>` : ''}
+      ${botonPub(p)}
       <button id="vm-info">Agregar dato sobre la foto (ℹ️)</button>
       <div id="map"></div>
       <button id="vm-dl">Descargar panorámica (JPG)</button>
@@ -959,10 +963,12 @@ function visorMenu(){
     else $('map').outerHTML='<p class="small muted">Sin GPS en estos puntos: no hay mapa.</p>';
     $('vm-dl').onclick=async()=>{ const b=await loadBlob(pt.pano); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`inmex-punto-${V.idx+1}.jpg`; document.body.appendChild(a); a.click(); a.remove(); };
   } else {
-    sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">${p.anillos.length} vuelta(s), ${p.anillos.reduce((a,r)=>a+r.length,0)} fotos. ${p.anillos.length<3 ? 'Para el 3D conviene tener 3 vueltas.' : 'Alcanza para armar el modelo 3D.'}</p><button id="vm-zip" class="pri">Descargar fotos para el 3D (ZIP)</button><a class="btn" href="ver3d.html">Ver un modelo 3D</a><button id="vm-fic">Editar ficha (precio, WhatsApp)</button><button id="vm-ok" class="ok">Cerrar</button>`;
+    sh.innerHTML = `<h2>Opciones</h2><label class="small muted" for="vm-nom">Nombre de la máquina</label><input id="vm-nom" value="${esc(p.nombre)}"><p class="small muted">${p.anillos.length} vuelta(s), ${p.anillos.reduce((a,r)=>a+r.length,0)} fotos. ${p.anillos.length<3 ? 'Para el 3D conviene tener 3 vueltas.' : 'Alcanza para armar el modelo 3D.'}</p>${botonPub(p)}<button id="vm-zip">Descargar fotos para el 3D (ZIP)</button><a class="btn" href="ver3d.html">Ver un modelo 3D</a><button id="vm-fic">Editar ficha (precio, WhatsApp)</button><button id="vm-ok" class="ok">Cerrar</button>`;
     $('vm-zip').onclick=()=>zipMaquina(p);
   }
   if ($('vm-fic')) $('vm-fic').onclick=()=>editFicha();
+  $('vm-pub').onclick=()=>{ p.nombre=$('vm-nom').value.trim()||p.nombre; publicar(p); };
+  if ($('vm-lnk')) $('vm-lnk').onclick=()=>mostrarLink(p);
   $('vm-ok').onclick=()=>{ p.nombre=$('vm-nom').value.trim()||p.nombre; DB.put(p); sh.hidden=true; $('v-tit').textContent=p.nombre; };
 }
 
@@ -1043,6 +1049,115 @@ function editFicha(){
   };
 }
 
+/* ================== publicar y compartir por link ================== */
+// Se guarda en la base del Constructor (sección aparte: tabla inmex_tours y carpeta de fotos "inmex"). Publica solo un editor de Inmex.
+const SB = { url:'https://tgyleckvjeqpndhhjksq.supabase.co', key:'sb_publishable_UXMhInXTsm9TCI_xgIpbZw_BBF_Krfj' };
+let REM = null; // tour abierto por link (solo mirar): {id, slug}
+function sesGet(){ try{ return JSON.parse(localStorage.getItem('inmex-ses')||'null'); }catch(e){ return null; } }
+function sesSet(s){ try{ if (s) localStorage.setItem('inmex-ses', JSON.stringify(s)); else localStorage.removeItem('inmex-ses'); }catch(e){} }
+async function sbAuth(cuerpo, tipo){
+  const r=await fetch(`${SB.url}/auth/v1/token?grant_type=${tipo}`, {method:'POST', headers:{apikey:SB.key,'Content-Type':'application/json'}, body:JSON.stringify(cuerpo)});
+  const j=await r.json().catch(()=>({})); if (!r.ok) throw new Error(j.error_description||j.msg||'No pude entrar');
+  const s={ at:j.access_token, rt:j.refresh_token, vence:Date.now()+(j.expires_in||3600)*1000-60000 }; sesSet(s); return s;
+}
+async function sesion(){
+  const s=sesGet(); if (!s) return null;
+  if (Date.now() < s.vence) return s;
+  try{ return await sbAuth({refresh_token:s.rt}, 'refresh_token'); }catch(e){ sesSet(null); return null; }
+}
+function pedirLogin(){
+  return new Promise(res=>{
+    const sh=$('sheet'); sh.hidden=false;
+    sh.innerHTML=`<h2>Entrar para publicar</h2><p class="small muted" style="margin:0">Con el mismo usuario y contraseña del Control Constructor. Queda guardado en este celular.</p>
+      <label class="small muted" for="lg-e">Email</label><input id="lg-e" type="email" autocomplete="username" inputmode="email">
+      <label class="small muted" for="lg-c">Contraseña</label><input id="lg-c" type="password" autocomplete="current-password">
+      <div class="row"><button id="lg-no">Cancelar</button><button class="pri" id="lg-ok">Entrar</button></div>`;
+    $('lg-no').onclick=()=>{ sh.hidden=true; res(null); };
+    $('lg-ok').onclick=async()=>{
+      const e=$('lg-e').value.trim(), c=$('lg-c').value; if (!e||!c){ toast('Completá email y contraseña.'); return; }
+      $('lg-ok').disabled=true;
+      try{ const s=await sbAuth({email:e,password:c}, 'password'); sh.hidden=true; res(s); }
+      catch(err){ $('lg-ok').disabled=false; toast(/invalid/i.test(err.message)?'Email o contraseña incorrectos.':'No pude entrar. Revisá la señal.'); }
+    };
+  });
+}
+async function sbFetch(ruta, s, opc={}){
+  const r=await fetch(SB.url+ruta, {...opc, headers:{apikey:SB.key, Authorization:'Bearer '+s.at, ...(opc.headers||{})}});
+  if (!r.ok){ const t=await r.text().catch(()=>''); const e=new Error(t||('error '+r.status)); e.status=r.status; throw e; }
+  return r.status===204 ? null : r.json().catch(()=>null);
+}
+// qué fotos usa un recorrido y qué datos se publican (sin las fotos sueltas de la captura)
+function datosPublicos(p){
+  const keys=[]; const k=x=>{ if (x) keys.push(x); return x; };
+  if (p.tipo==='lugar') return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, puntos:p.puntos.map(x=>({ id:x.id, pano:k(x.pano), gps:x.gps||null, flechas:x.flechas||[], infos:(x.infos||[]).map(i=>({...i, foto:k(i.foto)})) })) } };
+  return { keys, datos:{ nombre:p.nombre, tipo:p.tipo, ficha:p.ficha||{}, anillos:p.anillos.map(r=>r.map(s=>({key:k(s.key)}))), detalles:p.detalles.map(d=>({nombre:d.nombre, key:k(d.key)})) } };
+}
+const linkDe = slug => location.origin + location.pathname + '?t=' + slug;
+async function publicar(p){
+  if (!navigator.onLine){ toast('Sin señal: probá cuando tengas internet.'); return; }
+  let s=await sesion(); if (!s) s=await pedirLogin(); if (!s) return;
+  const sh=$('sheet'); sh.hidden=false; sh.innerHTML=`<h2>Publicando…</h2><div class="bar"><i id="pb-bar"></i></div><p class="muted small" id="pb-m">Preparando.</p>`;
+  const prog=(f,t)=>{ if ($('pb-bar')) $('pb-bar').style.width=Math.round(f*100)+'%'; if ($('pb-m')) $('pb-m').textContent=t; };
+  try{
+    const {keys, datos}=datosPublicos(p);
+    if (!p.remoto){
+      const fila=await sbFetch('/rest/v1/inmex_tours', s, {method:'POST', headers:{'Content-Type':'application/json', Prefer:'return=representation'}, body:JSON.stringify({tipo:p.tipo, nombre:(p.nombre||'Sin nombre').slice(0,120), datos:{}})});
+      p.remoto={ id:fila[0].id, slug:fila[0].slug, subidas:[] }; await DB.put(p);
+    }
+    const hechas=new Set(p.remoto.subidas||[]); const faltan=keys.filter(x=>!hechas.has(x));
+    for (let i=0;i<faltan.length;i++){
+      prog(0.05+0.85*i/faltan.length, `Subiendo foto ${i+1} de ${faltan.length}…`);
+      const b=await loadBlob(faltan[i]); if (!b) continue;
+      await sbFetch(`/storage/v1/object/inmex/${p.remoto.id}/${faltan[i]}.jpg`, s, {method:'POST', headers:{'Content-Type':b.type||'image/jpeg','x-upsert':'true'}, body:b});
+      hechas.add(faltan[i]); p.remoto.subidas=[...hechas]; await DB.put(p);
+    }
+    prog(0.95, 'Guardando…');
+    await sbFetch(`/rest/v1/inmex_tours?id=eq.${p.remoto.id}`, s, {method:'PATCH', headers:{'Content-Type':'application/json', Prefer:'return=minimal'}, body:JSON.stringify({nombre:(p.nombre||'Sin nombre').slice(0,120), datos, publico:true})});
+    mostrarLink(p);
+  }catch(e){
+    if (e.status===401){ sesSet(null); toast('Se venció la sesión: entrá de nuevo.'); sh.hidden=true; return; }
+    if (e.status===403 || /row-level|policy/i.test(e.message)){ sh.innerHTML=`<h2>Ese usuario no puede publicar</h2><p class="muted">Pedile a Victor que lo habilite como editor de Inmex.</p><div class="row"><button id="pb-out">Entrar con otro usuario</button><button class="ok" id="pb-x">Cerrar</button></div>`; $('pb-x').onclick=()=>sh.hidden=true; $('pb-out').onclick=()=>{ sesSet(null); publicar(p); }; return; }
+    sh.innerHTML=`<h2>No se pudo publicar</h2><p class="muted">Se cortó la conexión. Lo que ya subió queda guardado: tocá Reintentar y sigue desde ahí.</p><div class="row"><button id="pb-x">Cancelar</button><button class="pri" id="pb-re">Reintentar</button></div>`;
+    $('pb-x').onclick=()=>sh.hidden=true; $('pb-re').onclick=()=>publicar(p);
+  }
+}
+function mostrarLink(p){
+  const url=linkDe(p.remoto.slug), sh=$('sheet'); sh.hidden=false;
+  const txt=`${p.nombre} en 360: ${url}`;
+  sh.innerHTML=`<h2>¡Listo! Ya se puede ver por link</h2><p class="small muted" style="margin:0">Cualquiera que lo abra lo mira sin instalar nada. Si cambiás algo, tocá "Publicar" otra vez y el mismo link se actualiza.</p>
+    <input id="pl-u" readonly value="${esc(url)}">
+    <a class="btn ok" id="pl-wa" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">💬 Mandar por WhatsApp</a>
+    <div class="row"><button id="pl-cp">📋 Copiar link</button><button id="pl-sh">Compartir…</button></div>
+    <a class="btn" style="background:var(--panel);color:var(--fg);border:1px solid var(--line)" href="${esc(url)}" target="_blank" rel="noopener">Ver cómo lo ve el cliente</a>
+    <button id="pl-x">Cerrar</button>`;
+  $('pl-x').onclick=()=>sh.hidden=true;
+  $('pl-cp').onclick=async()=>{ try{ await navigator.clipboard.writeText(url); toast('Link copiado.'); }catch(e){ $('pl-u').select(); toast('Mantené apretado el link para copiarlo.'); } };
+  $('pl-sh').onclick=async()=>{ try{ if (navigator.share) await navigator.share({title:p.nombre, text:p.nombre+' en 360', url}); else $('pl-cp').click(); }catch(e){} };
+}
+// abrir un tour publicado (?t=slug): solo mirar
+async function abrirRemoto(slug){
+  show('s-armado'); $('arm-t').textContent='Abriendo…'; $('arm-m').textContent='Cargando la vista 360.';
+  try{
+    const r=await fetch(`${SB.url}/rest/v1/inmex_tours?slug=eq.${encodeURIComponent(slug)}&select=id,slug,tipo,nombre,datos`, {headers:{apikey:SB.key}});
+    const fila=(await r.json())[0];
+    if (!r.ok || !fila || !fila.datos || !fila.datos.tipo) throw new Error('no está');
+    REM={ id:fila.id, slug:fila.slug };
+    document.body.classList.add('remoto');
+    const d=fila.datos; const proj={ id:'rem_'+fila.id, tipo:d.tipo, nombre:fila.nombre, ficha:d.ficha||{}, puntos:d.puntos||[], anillos:d.anillos||[], detalles:d.detalles||[] };
+    document.title=fila.nombre+' · Inmex 360';
+    P=proj; await openViewer(proj, 0);
+    const f=proj.ficha; $('b-ficha').hidden=!(f.precio||f.descripcion||f.ubicacion||f.whatsapp);
+    const n=waNum(f.whatsapp); if (n){ const w=document.createElement('a'); w.className='btn'; w.style.cssText='flex:1;padding:0 16px'; w.target='_blank'; w.rel='noopener'; w.textContent='💬 Consultar';
+      w.href=`https://wa.me/${n}?text=${encodeURIComponent('Hola, vi '+proj.nombre+' en Inmex 360 y quiero más información.')}`; $('v-bot').appendChild(w); }
+  }catch(e){
+    $('arm-t').textContent='No encontré esta vista'; $('arm-m').innerHTML='Puede que el link esté incompleto o que ya no esté publicada. <br><br><a class="btn" href="'+esc(location.pathname)+'">Ir a Inmex 360</a>';
+  }
+}
+async function blobRemoto(k){
+  const r=await fetch(`${SB.url}/storage/v1/object/public/inmex/${REM.id}/${k}.jpg`); if (!r.ok) return null;
+  const b=await r.blob(); mem.set(k,b); return b;
+}
+
 /* ================== modo de ejemplo (sin celular) ================== */
 (function demoControls(){
   const el=$('cam'); let d=null;
@@ -1073,9 +1188,10 @@ $('b-vmenu').onclick=visorMenu;
 $('b-ficha').onclick=showFicha;
 // toda hoja lleva la X arriba a la derecha
 new MutationObserver(()=>{ const sh=$('sheet'); if (sh.hidden || sh.querySelector(':scope>.x')) return; const x=document.createElement('button'); x.className='x'; x.type='button'; x.setAttribute('aria-label','Cerrar'); x.textContent='✕'; x.onclick=()=>{ sh.hidden=true; V.placeInfo=false; }; sh.prepend(x); }).observe($('sheet'), {childList:true, attributes:true, attributeFilter:['hidden']});
-refreshList();
+const tParam=new URLSearchParams(location.search).get('t');
+if (tParam) abrirRemoto(tParam); else refreshList();
 // para pruebas automáticas
-window.__inmex = { V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
+window.__inmex = { publicar, datosPublicos, mostrarLink, saveBlob, DB, openViewer, get REM(){return REM;}, V, SP, addInfoAt, showFicha, editFicha, zipStore, zipMaquina, covered:()=>coveredSet(), CAM, S, CAP, get P(){return P;}, get point(){return point;}, targets:()=>targets, finishPoint, startLugar, startMaquina, shotMaquina, finishMaquina, FOV };
 </script>
 </body>
 </html>
